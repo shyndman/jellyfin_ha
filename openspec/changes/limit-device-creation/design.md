@@ -4,6 +4,22 @@
 
 The device key (currently `{DeviceId}.{Client}`) flows through multiple components and is the primary identifier for device tracking, entity creation, and callback dispatch. Changing this key affects several interconnected systems.
 
+## API Verification
+
+**Source:** Jellyfin OpenAPI spec (`openapi.json`), schema `SessionInfoDto` (line 70868)
+
+| Field | Type | Nullable | Safe to use |
+|-------|------|----------|-------------|
+| `HasCustomDeviceName` | boolean | No | ✓ Always present |
+| `UserId` | string (uuid) | No | ✓ Always present |
+| `DeviceName` | string | **Yes** | ⚠ Must guard against null |
+| `DeviceId` | string | Yes | (existing, being replaced) |
+| `UserName` | string | Yes | (not used in key) |
+
+**Risk:** `DeviceName` is nullable in the schema. If `HasCustomDeviceName == true` but `DeviceName` is null, we must skip the device and log a warning. This is likely a Jellyfin bug if it occurs, but we should handle it defensively.
+
+**Dependency note:** `jellyfin-apiclient-python` is pinned at 1.7.2; current PyPI version is 1.11.0. Not blocking for this change.
+
 ## Device Key Usage Map
 
 The device key is used in **6 locations** across 2 files:
@@ -76,8 +92,17 @@ for device in self._sessions:
     if not device.get('HasCustomDeviceName', False):
         continue
 
+    # Guard against null DeviceName (shouldn't happen, but schema allows it)
+    device_name = device.get('DeviceName')
+    if not device_name:
+        _LOGGER.warning(
+            'Session has HasCustomDeviceName=true but DeviceName is null/empty. '
+            'UserId=%s, DeviceId=%s', device.get('UserId'), device.get('DeviceId')
+        )
+        continue
+
     # Existing logic continues with new key format...
-    dev_name = '{}.{}'.format(device['DeviceName'], device['UserId'])
+    dev_name = '{}.{}'.format(device_name, device['UserId'])
 ```
 
 ## Migration Considerations
@@ -94,6 +119,7 @@ No code-level migration is needed — HA handles entity registry naturally.
 
 | Risk | Mitigation |
 |------|------------|
-| `DeviceName` or `UserId` missing from session | Use `.get()` with filter, log warning |
+| `DeviceName` null when `HasCustomDeviceName=true` | Guard with null check, log warning, skip device |
+| `UserId` missing from session | Schema says non-nullable; use direct access `device['UserId']` |
 | Same DeviceName for different users | Key includes UserId, so unique per user |
 | Callback mismatch after key format change | All 6 locations updated atomically |
