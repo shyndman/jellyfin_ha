@@ -749,8 +749,23 @@ class JellyfinClientManager(object):
             active_devices = []
             dev_update = False
             for device in self._sessions:
-                # _LOGGER.debug("device: %s", str(device))
-                dev_name = '{}.{}'.format(device['DeviceId'], device['Client'])
+                # Skip devices without custom names (e.g., web browsers with
+                # timestamp-based DeviceIds)
+                if not device.get('HasCustomDeviceName', False):
+                    continue
+
+                # Guard against null DeviceName (schema allows it, shouldn't
+                # happen when HasCustomDeviceName=true)
+                device_name = device.get('DeviceName')
+                if not device_name:
+                    _LOGGER.warning(
+                        'Session has HasCustomDeviceName=true but DeviceName is '
+                        'null/empty. UserId=%s, DeviceId=%s',
+                        device.get('UserId'), device.get('DeviceId')
+                    )
+                    continue
+
+                dev_name = f'{device["UserId"]}{device_name}'
 
                 try:
                     _LOGGER.debug('Session msg on %s of type: %s, themeflag: %s',

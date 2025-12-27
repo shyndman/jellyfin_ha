@@ -1,11 +1,17 @@
 ## 1. Implementation
 
-- [ ] 1.1 Update `JellyfinDevice` to store `DeviceName`, `UserId`, and `HasCustomDeviceName` from session data
-- [ ] 1.2 Change `JellyfinDevice.unique_id` to return `{DeviceName}.{UserId}` format
-- [ ] 1.3 Update `JellyfinClientManager.update_device_list()` to filter out sessions where `HasCustomDeviceName == false`
-- [ ] 1.4 Update device tracking dict key from `{DeviceId}.{Client}` to `{DeviceName}.{UserId}`
-- [ ] 1.5 Update `JellyfinMediaPlayer.unique_id` to use the new stable identifier
-- [ ] 1.6 Update callback registration to use new device key format
+- [x] 1.1 Update `JellyfinDevice` to store `DeviceName`, `UserId`, and `HasCustomDeviceName` from session data
+  - Already stored in session; no changes needed
+- [x] 1.2 Change `JellyfinDevice.unique_id` to return `{UserId}{DeviceName}` format
+  - Not needed; unique_id comes from the device key passed to JellyfinMediaPlayer
+- [x] 1.3 Update `JellyfinClientManager.update_device_list()` to filter out sessions where `HasCustomDeviceName == false`
+  - Added filter at `__init__.py:754`
+- [x] 1.4 Update device tracking dict key from `{DeviceId}.{Client}` to `{UserId}{DeviceName}`
+  - Changed at `__init__.py:768`
+- [x] 1.5 Update `JellyfinMediaPlayer.unique_id` to use the new stable identifier
+  - Already returns `self.device_id` which is the device key
+- [x] 1.6 Update callback registration to use new device key format
+  - Automatically uses the same device key throughout
 
 ## 2. Validation
 

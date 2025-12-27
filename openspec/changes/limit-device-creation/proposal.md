@@ -7,7 +7,7 @@ Jellyfin web clients (including smart TVs) generate DeviceId values that include
 ## What Changes
 
 - **Filter**: Only create entities when `HasCustomDeviceName == true`
-- **Identity**: Use `{DeviceName}.{UserId}` as `unique_id` instead of `{DeviceId}.{Client}`
+- **Identity**: Use `{UserId}{DeviceName}` as `unique_id` instead of `{DeviceId}.{Client}`
 - **Ignore**: Sessions without custom device names produce no HA entities
 
 ## Impact

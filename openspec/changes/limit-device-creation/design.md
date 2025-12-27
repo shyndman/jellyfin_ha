@@ -102,12 +102,12 @@ for device in self._sessions:
         continue
 
     # Existing logic continues with new key format...
-    dev_name = '{}.{}'.format(device_name, device['UserId'])
+    dev_name = f'{device["UserId"]}{device_name}'
 ```
 
 ## Migration Considerations
 
-**Breaking change:** Existing entities have `unique_id` = `{DeviceId}.{Client}`. After this change, the same physical device will have `unique_id` = `{DeviceName}.{UserId}`. Home Assistant will treat these as different entities.
+**Breaking change:** Existing entities have `unique_id` = `{DeviceId}.{Client}`. After this change, the same physical device will have `unique_id` = `{UserId}{DeviceName}`. Home Assistant will treat these as different entities.
 
 Users will need to:
 1. Delete old stale entities from the entity registry
