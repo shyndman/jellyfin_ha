@@ -49,6 +49,8 @@ class JellyfinFlowHandler(config_entries.ConfigFlow):
         self._api_key = None
         self._ssl = DEFAULT_SSL
         self._verify_ssl = DEFAULT_VERIFY_SSL
+        self._generate_upcoming = False
+        self._generate_yamc = False
         self._is_import = False
 
     @staticmethod
@@ -81,14 +83,6 @@ class JellyfinFlowHandler(config_entries.ConfigFlow):
         """Handle a flow initialized by the user."""
 
         self._errors = {}
-
-        data_schema = {
-            vol.Required(CONF_URL): str,
-            vol.Required(CONF_API_KEY): str,
-            vol.Optional(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL): bool,
-            vol.Optional(CONF_GENERATE_UPCOMING, default=False): bool,
-            vol.Optional(CONF_GENERATE_YAMC, default=False): bool,
-        }
 
         if user_input is not None:
             self._url = str(user_input[CONF_URL])
@@ -132,6 +126,14 @@ class JellyfinFlowHandler(config_entries.ConfigFlow):
                 return self.async_abort(reason=result)
 
             self._errors["base"] = result
+
+        data_schema = {
+            vol.Required(CONF_URL, default=self._url or ""): str,
+            vol.Required(CONF_API_KEY, default=self._api_key or ""): str,
+            vol.Optional(CONF_VERIFY_SSL, default=self._verify_ssl): bool,
+            vol.Optional(CONF_GENERATE_UPCOMING, default=self._generate_upcoming): bool,
+            vol.Optional(CONF_GENERATE_YAMC, default=self._generate_yamc): bool,
+        }
 
         return self.async_show_form(
             step_id="user",
