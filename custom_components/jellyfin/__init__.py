@@ -35,6 +35,7 @@ from .const import (
     ATTR_SEARCH_TERM,
     CLIENT_VERSION,
     DOMAIN,
+    PLAYABLE_ITEM_TYPES,
     PLAYLISTS,
     SERVICE_BROWSE,
     SERVICE_DELETE,
@@ -743,11 +744,13 @@ class JellyfinClientManager:
                 self._yamc_streams = {}
 
                 for item in self._yamc.Items:
-                    stream_url, _, info = await self.get_stream_url(item.Id, item.Type)
-                    self._yamc_streams[item.Id] = {
-                        "stream_url": stream_url,
-                        "info": info,
-                    }
+                    # Only fetch stream URLs for directly playable types
+                    if item.Type in PLAYABLE_ITEM_TYPES:
+                        stream_url, _, info = await self.get_stream_url(item.Id, item.Type)
+                        self._yamc_streams[item.Id] = {
+                            "stream_url": stream_url,
+                            "info": info,
+                        }
 
     def update_device_list(self):
         """Update device list."""

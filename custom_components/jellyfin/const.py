@@ -37,6 +37,9 @@ CONF_LIBRARY_USER_ID = "library_user_id"
 
 YAMC_PAGE_SIZE=7
 
+# Item types that support the PlaybackInfo endpoint (can have stream URLs fetched)
+PLAYABLE_ITEM_TYPES = frozenset({"Movie", "Episode", "Audio", "Video", "MusicVideo"})
+
 PLAYLISTS = [
     {
         "name": "latest_movies",
