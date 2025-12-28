@@ -7,18 +7,16 @@ import logging
 import time
 import traceback
 from datetime import timedelta
-from typing import Dict, Mapping, MutableMapping, Optional, Tuple
+from typing import Mapping
 
 import dateutil.parser as dt
 import homeassistant.helpers.config_validation as cv  # pylint: disable=import-error
 import voluptuous as vol
-from homeassistant import util
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (  # pylint: disable=import-error
     ATTR_ENTITY_ID,
     ATTR_ID,
     CONF_URL,
-    CONF_VERIFY_SSL,
     EVENT_HOMEASSISTANT_STOP,
 )
 from homeassistant.core import HomeAssistant
@@ -29,17 +27,12 @@ from homeassistant.helpers.dispatcher import (  # pylint: disable=import-error
     async_dispatcher_send,
 )
 from jellyfin_apiclient_python import JellyfinClient
-from jellyfin_apiclient_python.connection_manager import CONNECTION_STATE
 
 from .const import (
     ATTR_PAGE,
     ATTR_PLAYLIST,
     ATTR_SEARCH_TERM,
     CLIENT_VERSION,
-    CONF_API_KEY,
-    CONF_GENERATE_UPCOMING,
-    CONF_GENERATE_YAMC,
-    CONF_LIBRARY_USER_ID,
     DOMAIN,
     PLAYLISTS,
     SERVICE_BROWSE,
@@ -58,6 +51,10 @@ from .const import (
 )
 from .models import (
     BaseItemDtoQueryResult,
+    JellyfinEntryData,
+    MediaSourceInfo,
+    PlaybackInfoResponse,
+    SessionInfoDto,
     UpcomingCardDefaults,
     UpcomingCardItem,
     UpcomingCardPayload,
@@ -151,22 +148,22 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
             config_entry, unique_id=config_entry.title
         )
 
-    config = {}
-    for key, value in config_entry.data.items():
-        config[key] = value
-    for key, value in config_entry.options.items():
-        config[key] = value
+    # Merge entry data and options, then validate as JellyfinEntryData
+    config_dict: dict = dict(config_entry.data)
+    config_dict.update(config_entry.options)
     if config_entry.options:
-        hass.config_entries.async_update_entry(config_entry, data=config, options={})
+        hass.config_entries.async_update_entry(config_entry, data=config_dict, options={})
+
+    config = JellyfinEntryData.model_validate(config_dict)
 
     UPDATE_UNLISTENER = config_entry.add_update_listener(_update_listener)
 
-    hass.data[DOMAIN][config.get(CONF_URL)] = {}
+    hass.data[DOMAIN][config.url] = {}
     _jelly = JellyfinClientManager(hass, config)
     try:
         await _jelly.connect()
-        hass.data[DOMAIN][config.get(CONF_URL)]["manager"] = _jelly
-    except:
+        hass.data[DOMAIN][config.url]["manager"] = _jelly
+    except Exception:
         _LOGGER.error("Cannot connect to Jellyfin server.")
         raise ConfigEntryNotReady
 
@@ -179,11 +176,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
 
         entity_id = service.data.get(ATTR_ENTITY_ID)
 
-        for sensor in hass.data[DOMAIN][config.get(CONF_URL)]["sensor"]["entities"]:
+        for sensor in hass.data[DOMAIN][config.url]["sensor"]["entities"]:
             if sensor.entity_id == entity_id:
                 await getattr(sensor, method["method"])(**params)
 
-        for media_player in hass.data[DOMAIN][config.get(CONF_URL)]["media_player"][
+        for media_player in hass.data[DOMAIN][config.url]["media_player"][
             "entities"
         ]:
             if media_player.entity_id == entity_id:
@@ -198,8 +195,8 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     await _jelly.start()
 
     for platform in PLATFORMS:
-        hass.data[DOMAIN][config.get(CONF_URL)][platform] = {}
-        hass.data[DOMAIN][config.get(CONF_URL)][platform]["entities"] = []
+        hass.data[DOMAIN][config.url][platform] = {}
+        hass.data[DOMAIN][config.url][platform]["entities"] = []
 
         await hass.config_entries.async_forward_entry_setups(config_entry, [platform])
 
@@ -250,234 +247,214 @@ async def async_remove_config_entry_device(
     return True
 
 
-class JellyfinDevice(object):
-    """Represents properties of an Jellyfin Device."""
+class JellyfinDevice:
+    """Represents properties of a Jellyfin Device."""
 
-    def __init__(self, session, jf_manager, device_key: str):
+    def __init__(
+        self, session: SessionInfoDto, jf_manager: "JellyfinClientManager", device_key: str
+    ):
         """Initialize Jellyfin device object."""
         self.jf_manager = jf_manager
         self.is_active = True
         self._device_key = device_key
-        self.update_session(session)
+        self.session = session
 
     @property
     def device_key(self) -> str:
         """Return the stable device key ({DeviceName}.{UserId})."""
         return self._device_key
 
-    def update_session(self, session):
+    def update_session(self, session: SessionInfoDto) -> None:
         """Update session object."""
         self.session = session
 
-    def set_active(self, active):
+    def set_active(self, active: bool) -> None:
         """Mark device as on/off."""
         self.is_active = active
 
     @property
-    def session_raw(self):
-        """Return raw session data."""
-        return self.session
-
-    @property
-    def session_id(self):
+    def session_id(self) -> str:
         """Return current session Id."""
-        try:
-            return self.session["Id"]
-        except KeyError:
-            return None
+        if self.session.Id is None:
+            raise ValueError("Session.Id is unexpectedly None")
+        return self.session.Id
 
     @property
-    def unique_id(self):
+    def unique_id(self) -> str:
         """Return device id."""
-        try:
-            return self.session["DeviceId"]
-        except KeyError:
-            return None
+        if self.session.DeviceId is None:
+            raise ValueError("Session.DeviceId is unexpectedly None")
+        return self.session.DeviceId
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Return device name."""
-        try:
-            return self.session["DeviceName"]
-        except KeyError:
-            return None
+        if self.session.DeviceName is None:
+            raise ValueError("Session.DeviceName is unexpectedly None")
+        return self.session.DeviceName
 
     @property
-    def client(self):
+    def client(self) -> str | None:
         """Return client name."""
-        try:
-            return self.session["Client"]
-        except KeyError:
-            return None
+        return self.session.Client
 
     @property
-    def username(self):
-        """Return device name."""
-        try:
-            return self.session["UserName"]
-        except KeyError:
-            return None
+    def username(self) -> str | None:
+        """Return username."""
+        return self.session.UserName
 
     @property
-    def media_title(self):
+    def media_title(self) -> str | None:
         """Return title currently playing."""
-        try:
-            return self.session["NowPlayingItem"]["Name"]
-        except KeyError:
+        if self.session.NowPlayingItem is None:
             return None
+        return self.session.NowPlayingItem.Name
 
     @property
-    def media_season(self):
-        """Season of curent playing media (TV Show only)."""
-        try:
-            return self.session["NowPlayingItem"]["ParentIndexNumber"]
-        except KeyError:
+    def media_season(self) -> int | None:
+        """Season of current playing media (TV Show only)."""
+        if self.session.NowPlayingItem is None:
             return None
+        return self.session.NowPlayingItem.ParentIndexNumber
 
     @property
-    def media_series_title(self):
+    def media_series_title(self) -> str | None:
         """The title of the series of current playing media (TV Show only)."""
-        try:
-            return self.session["NowPlayingItem"]["SeriesName"]
-        except KeyError:
+        if self.session.NowPlayingItem is None:
             return None
+        return self.session.NowPlayingItem.SeriesName
 
     @property
-    def media_episode(self):
+    def media_episode(self) -> int | None:
         """Episode of current playing media (TV Show only)."""
-        try:
-            return self.session["NowPlayingItem"]["IndexNumber"]
-        except KeyError:
+        if self.session.NowPlayingItem is None:
             return None
+        return self.session.NowPlayingItem.IndexNumber
 
     @property
-    def media_album_name(self):
+    def media_album_name(self) -> str | None:
         """Album name of current playing media (Music track only)."""
-        try:
-            return self.session["NowPlayingItem"]["Album"]
-        except KeyError:
+        if self.session.NowPlayingItem is None:
             return None
+        return self.session.NowPlayingItem.Album
 
     @property
-    def media_artist(self):
+    def media_artist(self) -> str | list[str] | None:
         """Artist of current playing media (Music track only)."""
-        try:
-            artists = self.session["NowPlayingItem"]["Artists"]
-            if len(artists) > 1:
-                return artists[0]
-            else:
-                return artists
-        except KeyError:
+        if self.session.NowPlayingItem is None:
             return None
+        artists = self.session.NowPlayingItem.Artists
+        if artists is None:
+            return None
+        if len(artists) > 1:
+            return artists[0]
+        return artists
 
     @property
-    def media_album_artist(self):
+    def media_album_artist(self) -> str | None:
         """Album artist of current playing media (Music track only)."""
-        try:
-            return self.session["NowPlayingItem"]["AlbumArtist"]
-        except KeyError:
+        if self.session.NowPlayingItem is None:
             return None
+        return self.session.NowPlayingItem.AlbumArtist
 
     @property
-    def media_id(self):
-        """Return title currently playing."""
-        try:
-            return self.session["NowPlayingItem"]["Id"]
-        except KeyError:
+    def media_id(self) -> str | None:
+        """Return id of currently playing media."""
+        if self.session.NowPlayingItem is None:
             return None
+        return self.session.NowPlayingItem.Id
 
     @property
-    def media_type(self):
+    def media_type(self) -> str | None:
         """Return type currently playing."""
-        try:
-            return self.session["NowPlayingItem"]["Type"]
-        except KeyError:
+        if self.session.NowPlayingItem is None:
             return None
+        return self.session.NowPlayingItem.Type
 
     @property
-    def media_image_url(self):
+    def media_image_url(self) -> str | None:
         """Image url of current playing media."""
-        if self.is_nowplaying:
-            try:
-                image_id = self.session["NowPlayingItem"]["ImageTags"]["Thumb"]
-                image_type = "Thumb"
-            except KeyError:
-                try:
-                    image_id = self.session["NowPlayingItem"]["ImageTags"]["Primary"]
-                    image_type = "Primary"
-                except KeyError:
-                    return None
-            url = self.jf_manager.api.artwork(self.media_id, image_type, 500)
-            return url
+        if not self.is_nowplaying:
+            return None
+        now_playing = self.session.NowPlayingItem
+        if now_playing is None or now_playing.ImageTags is None:
+            return None
+
+        image_tags = now_playing.ImageTags
+        if image_tags.Thumb is not None:
+            image_type = "Thumb"
+        elif image_tags.Primary is not None:
+            image_type = "Primary"
         else:
             return None
 
+        return self.jf_manager.api.artwork(self.media_id, image_type, 500)
+
     @property
-    def media_position(self):
+    def media_position(self) -> float | None:
         """Return position currently playing."""
-        try:
-            return int(self.session["PlayState"]["PositionTicks"]) / 10000000
-        except KeyError:
+        if self.session.PlayState is None:
             return None
+        position_ticks = self.session.PlayState.PositionTicks
+        if position_ticks is None:
+            return None
+        return position_ticks / 10000000
 
     @property
-    def media_runtime(self):
+    def media_runtime(self) -> float | None:
         """Return total runtime length."""
-        try:
-            return int(self.session["NowPlayingItem"]["RunTimeTicks"]) / 10000000
-        except KeyError:
+        if self.session.NowPlayingItem is None:
             return None
+        runtime_ticks = self.session.NowPlayingItem.RunTimeTicks
+        if runtime_ticks is None:
+            return None
+        return runtime_ticks / 10000000
 
     @property
-    def media_percent_played(self):
+    def media_percent_played(self) -> float | None:
         """Return media percent played."""
-        try:
-            return (self.media_position / self.media_runtime) * 100
-        except TypeError:
+        position = self.media_position
+        runtime = self.media_runtime
+        if position is None or runtime is None:
             return None
+        return (position / runtime) * 100
 
     @property
-    def state(self):
+    def state(self) -> str:
         """Return current playstate of the device."""
-        if self.is_active:
-            if "NowPlayingItem" in self.session:
-                if self.session["PlayState"]["IsPaused"]:
-                    return STATE_PAUSED
-                else:
-                    return STATE_PLAYING
-            else:
-                return STATE_IDLE
-        else:
+        if not self.is_active:
             return STATE_OFF
+        if self.session.NowPlayingItem is None:
+            return STATE_IDLE
+        if self.session.PlayState is not None and self.session.PlayState.IsPaused:
+            return STATE_PAUSED
+        return STATE_PLAYING
 
     @property
-    def is_nowplaying(self):
+    def is_nowplaying(self) -> bool:
         """Return true if an item is currently active."""
-        if self.state == "Idle" or self.state == "Off":
-            return False
-        else:
-            return True
+        return self.state not in (STATE_IDLE, STATE_OFF)
 
     @property
-    def supports_remote_control(self):
+    def supports_remote_control(self) -> bool:
         """Return remote control status."""
-        return self.session["SupportsRemoteControl"]
+        return self.session.SupportsRemoteControl
 
-    async def get_item(self, id):
+    async def get_item(self, id: str):
         return await self.jf_manager.get_item(id)
 
     async def get_items(self, query=None):
         return await self.jf_manager.get_items(query)
 
-    async def get_artwork(self, media_id) -> Tuple[Optional[str], Optional[str]]:
+    async def get_artwork(self, media_id: str) -> tuple[str | None, str | None]:
         return await self.jf_manager.get_artwork(media_id)
 
-    def get_artwork_url(self, media_id, type="Primary") -> str:
+    def get_artwork_url(self, media_id: str, type: str = "Primary") -> str:
         return self.jf_manager.get_artwork_url(media_id, type)
 
-    async def set_playstate(self, state, pos=0):
+    async def set_playstate(self, state: str, pos: float = 0) -> None:
         """Send media commands to server."""
-        params = {}
+        params: dict[str, str | int] = {}
         if state == "Seek":
             params["SeekPositionTicks"] = int(pos * 10000000)
             params["static"] = "true"
@@ -504,44 +481,44 @@ class JellyfinDevice(object):
         """Send previous track command to device."""
         return self.set_playstate("PreviousTrack")
 
-    def media_seek(self, position):
+    def media_seek(self, position: float):
         """Send seek command to device."""
         return self.set_playstate("Seek", position)
 
-    async def play_media(self, media_id):
+    async def play_media(self, media_id: str) -> None:
         await self.jf_manager.play_media(self.session_id, media_id)
 
-    async def browse_item(self, media_id):
+    async def browse_item(self, media_id: str) -> None:
         await self.jf_manager.view_media(self.session_id, media_id)
 
 
-class JellyfinClientManager(object):
-    def __init__(self, hass: HomeAssistant, config_entry):
+class JellyfinClientManager:
+    def __init__(self, hass: HomeAssistant, config: JellyfinEntryData):
         self.hass = hass
         self.callback = lambda client, event_name, data: None
-        self.jf_client: JellyfinClient = None
+        self.jf_client: JellyfinClient | None = None
         self.is_stopping = True
         self._event_loop = hass.loop
 
-        self.host = config_entry[CONF_URL]
+        self.host = config.url
         self._info = None
-        self._data: Optional[BaseItemDtoQueryResult] = None
-        self._yamc: Optional[BaseItemDtoQueryResult] = None
+        self._data: BaseItemDtoQueryResult | None = None
+        self._yamc: BaseItemDtoQueryResult | None = None
         self._yamc_cur_page = 1
         self._last_playlist = ""
         self._last_search = ""
-        self._yamc_streams: Dict[str, Dict[str, Optional[str]]] = {}
+        self._yamc_streams: dict[str, dict[str, str | None]] = {}
 
-        self.config_entry = config_entry
+        self.config = config
         self.server_url = ""
 
-        self._sessions = None
-        self._devices: Mapping[str, JellyfinDevice] = {}
+        self._sessions: list[SessionInfoDto] | None = None
+        self._devices: dict[str, JellyfinDevice] = {}
 
         # Callbacks
-        self._new_devices_callbacks = []
-        self._stale_devices_callbacks = []
-        self._update_callbacks = []
+        self._new_devices_callbacks: list = []
+        self._stale_devices_callbacks: list = []
+        self._update_callbacks: list = []
 
     @staticmethod
     def expo(max_value=None):
@@ -617,20 +594,19 @@ class JellyfinClientManager(object):
     def login(self):
         autolog(">>>")
 
-        raw_url = self.config_entry[CONF_URL]
         try:
-            self.server_url = normalize_server_url(raw_url)
+            self.server_url = normalize_server_url(self.config.url)
         except ValueError:
-            _LOGGER.error("Invalid Jellyfin URL: %s", raw_url)
+            _LOGGER.error("Invalid Jellyfin URL: %s", self.config.url)
             return False
 
-        self.jf_client = self.client_factory(self.config_entry[CONF_VERIFY_SSL])
+        self.jf_client = self.client_factory(self.config.verify_ssl)
         try:
             self.jf_client.authenticate(
                 {
                     "Servers": [
                         {
-                            "AccessToken": self.config_entry[CONF_API_KEY],
+                            "AccessToken": self.config.api_key,
                             "address": self.server_url,
                         }
                     ]
@@ -672,7 +648,8 @@ class JellyfinClientManager(object):
                     autolog("LibraryChanged: trigger update")
                     sensor.schedule_update_ha_state(force_refresh=True)
             elif event_name == "Sessions":
-                self._sessions = self.clean_none_dict_values(data)["value"]
+                raw = self.clean_none_dict_values(data)["value"]
+                self._sessions = [SessionInfoDto.model_validate(s) for s in raw]
                 self.update_device_list()
             else:
                 self.callback(self.jf_client, event_name, data)
@@ -686,9 +663,10 @@ class JellyfinClientManager(object):
         self._info = await self.hass.async_add_executor_job(
             self.jf_client.jellyfin._get, "System/Info"
         )
-        self._sessions = self.clean_none_dict_values(
+        raw_sessions = self.clean_none_dict_values(
             await self.hass.async_add_executor_job(self.jf_client.jellyfin.get_sessions)
         )
+        self._sessions = [SessionInfoDto.model_validate(s) for s in raw_sessions]
         await self.update_data()
 
     async def stop(self):
@@ -699,9 +677,9 @@ class JellyfinClientManager(object):
 
     async def update_data(self):
         autolog("<<<")
-        user_id = self.config_entry.get(CONF_LIBRARY_USER_ID)
+        user_id = self.config.library_user_id
 
-        if self.config_entry[CONF_GENERATE_UPCOMING]:
+        if self.config.generate_upcoming:
             if not user_id:
                 _LOGGER.warning(
                     "Upcoming media enabled but no Jellyfin user configured; skipping update."
@@ -720,7 +698,7 @@ class JellyfinClientManager(object):
                 )
                 self._data = BaseItemDtoQueryResult.model_validate(raw_upcoming)
 
-        if self.config_entry[CONF_GENERATE_YAMC]:
+        if self.config.generate_yamc:
             if not user_id:
                 _LOGGER.warning(
                     "YAMC data enabled but no Jellyfin user configured; skipping update."
@@ -770,69 +748,65 @@ class JellyfinClientManager(object):
     def update_device_list(self):
         """Update device list."""
         autolog(">>>")
-        # _LOGGER.debug("sessions: %s", str(sessions))
         if self._sessions is None:
             _LOGGER.error("Error updating Jellyfin devices.")
             return
 
         try:
-            new_devices = []
-            active_devices = []
+            new_devices: list[JellyfinDevice] = []
+            active_devices: list[str] = []
             dev_update = False
-            for device in self._sessions:
+            for session in self._sessions:
                 # Skip devices without custom names (e.g., web browsers with
                 # timestamp-based DeviceIds)
-                if not device.get("HasCustomDeviceName", False):
+                if not session.HasCustomDeviceName:
                     continue
 
                 # Guard against null DeviceName (schema allows it, shouldn't
                 # happen when HasCustomDeviceName=true)
-                device_name = device.get("DeviceName")
+                device_name = session.DeviceName
                 if not device_name:
                     _LOGGER.warning(
                         "Session has HasCustomDeviceName=true but DeviceName is "
                         "null/empty. UserId=%s, DeviceId=%s",
-                        device.get("UserId"),
-                        device.get("DeviceId"),
+                        session.UserId,
+                        session.DeviceId,
                     )
                     continue
 
-                dev_name = f"{device['UserId']}{device_name}"
+                dev_key = f"{session.UserId}{device_name}"
 
-                try:
+                if session.NowPlayingItem is not None:
                     _LOGGER.debug(
-                        "Session msg on %s of type: %s, themeflag: %s",
-                        dev_name,
-                        device["NowPlayingItem"]["Type"],
-                        device["NowPlayingItem"]["IsThemeMedia"],
+                        "Session msg on %s of type: %s",
+                        dev_key,
+                        session.NowPlayingItem.Type,
                     )
-                except KeyError:
-                    pass
 
-                active_devices.append(dev_name)
-                if dev_name not in self._devices:
+                active_devices.append(dev_key)
+                if dev_key not in self._devices:
                     _LOGGER.debug(
-                        "New Jellyfin DeviceID: %s. Adding to device list.", dev_name
+                        "New Jellyfin DeviceID: %s. Adding to device list.", dev_key
                     )
-                    new = JellyfinDevice(device, self, dev_name)
-                    self._devices[dev_name] = new
+                    new = JellyfinDevice(session, self, dev_key)
+                    self._devices[dev_key] = new
                     new_devices.append(new)
                 else:
                     # Before we send in new data check for changes to state
                     # to decide if we need to fire the update callback
-                    if not self._devices[dev_name].is_active:
+                    if not self._devices[dev_key].is_active:
                         # Device wasn't active on the last update
                         # We need to fire a device callback to let subs now
                         dev_update = True
 
-                    do_update = self.update_check(self._devices[dev_name], device)
-                    self._devices[dev_name].update_session(device)
-                    self._devices[dev_name].set_active(True)
+                    do_update = self.update_check(self._devices[dev_key], session)
+                    self._devices[dev_key].update_session(session)
+                    self._devices[dev_key].set_active(True)
                     if dev_update:
                         self._do_new_devices_callback(0)
                         dev_update = False
                     if do_update:
-                        self._do_update_callback(dev_name)
+                        self._do_update_callback(dev_key)
 
             # Need to check for new inactive devices and flag
             for dev_id in self._devices:
@@ -846,45 +820,30 @@ class JellyfinClientManager(object):
             # Call device callback if new devices were found.
             if new_devices:
                 self._do_new_devices_callback(0)
-        except Exception as e:
+        except Exception:
             _LOGGER.critical(traceback.format_exc())
             raise
 
-    def update_check(self, existing: JellyfinDevice, new: JellyfinDevice):
+    def update_check(self, existing: JellyfinDevice, new_session: SessionInfoDto) -> bool:
         """Check device state to see if we need to fire the callback.
-        True if either state is 'Playing'
-        False if both states are: 'Paused', 'Idle', or 'Off'
-        True on any state transition.
+
+        Returns True if either state is 'Playing', or on any state transition.
+        Returns False if both states are: 'Paused', 'Idle', or 'Off'.
         """
         autolog(">>>")
 
         old_state = existing.state
-        if "NowPlayingItem" in existing.session_raw:
-            try:
-                old_theme = existing.session_raw["NowPlayingItem"]["IsThemeMedia"]
-            except KeyError:
-                old_theme = False
-        else:
-            old_theme = False
 
-        if "NowPlayingItem" in new:
-            if new["PlayState"]["IsPaused"]:
+        # Determine new state from session
+        if new_session.NowPlayingItem is not None:
+            if new_session.PlayState is not None and new_session.PlayState.IsPaused:
                 new_state = STATE_PAUSED
             else:
                 new_state = STATE_PLAYING
-
-            try:
-                new_theme = new["NowPlayingItem"]["IsThemeMedia"]
-            except KeyError:
-                new_theme = False
-
         else:
             new_state = STATE_IDLE
-            new_theme = False
 
-        if old_theme or new_theme:
-            return False
-        elif old_state == STATE_PLAYING or new_state == STATE_PLAYING:
+        if old_state == STATE_PLAYING or new_state == STATE_PLAYING:
             return True
         elif old_state != new_state:
             return True
@@ -901,7 +860,7 @@ class JellyfinClientManager(object):
     @property
     def data(self):
         """Upcoming card data"""
-        if self.config_entry[CONF_GENERATE_UPCOMING] == False or self.is_stopping:
+        if not self.config.generate_upcoming or self.is_stopping:
             return None
 
         payload: UpcomingCardPayload = [
@@ -961,7 +920,7 @@ class JellyfinClientManager(object):
     @property
     def yamc(self):
         """Upcoming card data"""
-        if self.config_entry[CONF_GENERATE_YAMC] == False or self.is_stopping:
+        if not self.config.generate_yamc or self.is_stopping:
             return None
 
         payload: YamcCardPayload = [
@@ -1026,10 +985,10 @@ class JellyfinClientManager(object):
             if not title:
                 raise ValueError(f"YAMC item missing title: Id={item.Id}")
 
-            episode_value: Optional[str] = None
-            tagline_value: Optional[str] = None
+            episode_value: str | None = None
+            tagline_value: str | None = None
             flag_value = base_flag
-            release_value: Optional[str] = None
+            release_value: str | None = None
             fanart_type = "Primary"
 
             if item.Type == "Movie":
@@ -1200,8 +1159,8 @@ class JellyfinClientManager(object):
         )
 
     async def get_artwork(
-        self, media_id, type="Primary"
-    ) -> Tuple[Optional[str], Optional[str]]:
+        self, media_id: str, type: str = "Primary"
+    ) -> tuple[str | None, str | None]:
         query = {"format": "PNG", "maxWidth": 500, "maxHeight": 500}
         image = await self.hass.async_add_executor_job(
             self.jf_client.jellyfin.items,
@@ -1223,8 +1182,8 @@ class JellyfinClientManager(object):
         )
 
     async def get_stream_url(
-        self, media_id, media_content_type
-    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        self, media_id: str, media_content_type: str
+    ) -> tuple[str | None, str | None, str | None]:
         profile = {
             "Name": USER_APP_NAME,
             "MaxStreamingBitrate": 25000 * 1000,
@@ -1292,17 +1251,22 @@ class JellyfinClientManager(object):
             ],
         }
 
-        playback_info = await self.get_play_info(media_id, profile)
-        _LOGGER.debug("playbackinfo: %s", str(playback_info))
-        if playback_info is None or "MediaSources" not in playback_info:
+        raw_playback_info = await self.get_play_info(media_id, profile)
+        _LOGGER.debug("playbackinfo: %s", str(raw_playback_info))
+        if raw_playback_info is None:
             _LOGGER.error(f"No playback info for item id {media_id}")
             return (None, None, None)
 
-        selected = None
-        weight_selected = 0
-        for media_source in playback_info["MediaSources"]:
-            weight = (media_source.get("SupportsDirectStream") or 0) * 50000 + (
-                media_source.get("Bitrate") or 0
+        playback_info = PlaybackInfoResponse.model_validate(raw_playback_info)
+        if playback_info.MediaSources is None or not playback_info.MediaSources:
+            _LOGGER.error(f"No media sources for item id {media_id}")
+            return (None, None, None)
+
+        selected: MediaSourceInfo | None = None
+        weight_selected = 0.0
+        for media_source in playback_info.MediaSources:
+            weight = (1 if media_source.SupportsDirectStream else 0) * 50000 + (
+                media_source.Bitrate or 0
             ) / 1000
             if weight > weight_selected:
                 weight_selected = weight
@@ -1314,44 +1278,47 @@ class JellyfinClientManager(object):
         url = ""
         mimetype = "none/none"
         info = "Not playable"
-        if selected["SupportsDirectStream"]:
+        if selected.SupportsDirectStream:
+            if selected.Container is None or selected.Id is None:
+                raise ValueError("DirectStream source missing Container or Id")
             if media_content_type in ("Audio", "track"):
-                mimetype = "audio/" + selected["Container"]
+                mimetype = "audio/" + selected.Container
                 url = (
                     self.get_server_url()
                     + "/Audio/%s/stream?static=true&MediaSourceId=%s&api_key=%s"
-                    % (media_id, selected["Id"], self.get_auth_token())
+                    % (media_id, selected.Id, self.get_auth_token())
                 )
             else:
-                mimetype = "video/" + selected["Container"]
+                mimetype = "video/" + selected.Container
                 url = (
                     self.get_server_url()
                     + "/Videos/%s/stream?static=true&MediaSourceId=%s&api_key=%s"
-                    % (media_id, selected["Id"], self.get_auth_token())
+                    % (media_id, selected.Id, self.get_auth_token())
                 )
 
-        elif selected["SupportsTranscoding"]:
-            url = self.get_server_url() + selected.get("TranscodingUrl")
-            container = (
-                selected["TranscodingContainer"]
-                if "TranscodingContainer" in selected
-                else selected["Container"]
-            )
+        elif selected.SupportsTranscoding:
+            if selected.TranscodingUrl is None:
+                raise ValueError("Transcoding source missing TranscodingUrl")
+            url = self.get_server_url() + selected.TranscodingUrl
+            container = selected.TranscodingContainer or selected.Container
+            if container is None:
+                raise ValueError("Transcoding source missing Container")
             if media_content_type in ("Audio", "track"):
                 mimetype = "audio/" + container
             else:
                 mimetype = "video/" + container
 
-        if media_content_type in ("Audio", "track"):
-            for stream in selected["MediaStreams"]:
-                if stream["Type"] == "Audio":
-                    info = f"{stream['Codec']} {stream['SampleRate']}Hz"
-                    break
-        else:
-            for stream in selected["MediaStreams"]:
-                if stream["Type"] == "Video":
-                    info = f"{stream['Width']}x{stream['Height']} {stream['Codec']}"
-                    break
+        if selected.MediaStreams is not None:
+            if media_content_type in ("Audio", "track"):
+                for stream in selected.MediaStreams:
+                    if stream.Type == "Audio":
+                        info = f"{stream.Codec} {stream.SampleRate}Hz"
+                        break
+            else:
+                for stream in selected.MediaStreams:
+                    if stream.Type == "Video":
+                        info = f"{stream.Width}x{stream.Height} {stream.Codec}"
+                        break
 
         _LOGGER.debug("stream info: %s - url: %s", info, url)
         return (url, mimetype, info)

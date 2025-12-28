@@ -1,7 +1,7 @@
 """Config flow for Jellyfin."""
 import asyncio
 import logging
-from typing import List, Optional
+from typing import Any
 
 import voluptuous as vol
 
@@ -24,6 +24,7 @@ from .const import (
     DOMAIN,
     USER_APP_NAME,
 )
+from .models import JellyfinEntryData
 from .url import normalize_server_url
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,9 +44,9 @@ class JellyfinFlowBase:
 
     def __init__(self):
         super().__init__()
-        self._client: Optional[JellyfinClient] = None
-        self._pending_entry_data: Optional[dict] = None
-        self._library_user_id: Optional[str] = None
+        self._client: JellyfinClient | None = None
+        self._pending_entry_data: JellyfinEntryData | None = None
+        self._library_user_id: str | None = None
 
     def _client_factory(self, verify_ssl: bool) -> JellyfinClient:
         client = JellyfinClient(allow_multiple_clients=True)
@@ -77,7 +78,7 @@ class JellyfinFlowBase:
 
         return client
 
-    def _format_user_label(self, user: dict) -> Optional[str]:
+    def _format_user_label(self, user: dict[str, Any]) -> str | None:
         user_id = user.get("Id")
         if not user_id:
             return None
@@ -87,7 +88,7 @@ class JellyfinFlowBase:
             return f"{name} ({username})"
         return name or user_id
 
-    def _fetch_user_options_from_client(self, client: JellyfinClient) -> List[dict]:
+    def _fetch_user_options_from_client(self, client: JellyfinClient) -> list[dict[str, str]]:
         if client is None:
             raise UserSelectionError
         try:
@@ -98,7 +99,7 @@ class JellyfinFlowBase:
             _LOGGER.debug("Failed to fetch Jellyfin users.", exc_info=True)
             raise UserSelectionError from exc
 
-        options: List[dict] = []
+        options: list[dict[str, str]] = []
         for user in users or []:
             label = self._format_user_label(user)
             if not label:
@@ -109,13 +110,13 @@ class JellyfinFlowBase:
             raise UserSelectionError
         return options
 
-    async def _async_get_user_options(self) -> List[dict]:
+    async def _async_get_user_options(self) -> list[dict[str, str]]:
         return await self.hass.async_add_executor_job(
             self._fetch_user_options_from_client,
             self._client,
         )
 
-    def _build_user_schema(self, default_value: Optional[str], options: List[dict]) -> vol.Schema:
+    def _build_user_schema(self, default_value: str | None, options: list[dict[str, str]]) -> vol.Schema:
         select = selector(
             {
                 "select": {
@@ -135,7 +136,9 @@ class JellyfinFlowBase:
         )
 
     def _create_entry_from_pending(self, title: str):
-        data = self._pending_entry_data or {}
+        if self._pending_entry_data is None:
+            raise ValueError("No pending entry data")
+        data = self._pending_entry_data.model_dump()
         self._pending_entry_data = None
         self._client = None
         return self.async_create_entry(title=title, data=data)
@@ -192,14 +195,15 @@ class JellyfinFlowHandler(JellyfinFlowBase, config_entries.ConfigFlow):
                     self._verify_ssl,
                 )
 
-                self._pending_entry_data = {
-                    CONF_URL: self._url,
-                    CONF_API_KEY: self._api_key,
-                    CONF_VERIFY_SSL: self._verify_ssl,
-                    CONF_GENERATE_UPCOMING: self._generate_upcoming,
-                    CONF_GENERATE_YAMC: self._generate_yamc,
-                    CONF_LIBRARY_USER_ID: None,
-                }
+                # Build pending entry data - validation deferred if needs_user
+                self._pending_entry_data = JellyfinEntryData.model_construct(
+                    url=self._url,
+                    api_key=self._api_key,
+                    verify_ssl=self._verify_ssl,
+                    generate_upcoming=self._generate_upcoming,
+                    generate_yamc=self._generate_yamc,
+                    library_user_id=None,
+                )
 
                 if needs_user:
                     self._library_user_id = None
@@ -241,8 +245,18 @@ class JellyfinFlowHandler(JellyfinFlowBase, config_entries.ConfigFlow):
             library_user_id = user_input.get(CONF_LIBRARY_USER_ID)
             if not library_user_id:
                 self._errors["base"] = ERROR_USER_REQUIRED
+            elif self._pending_entry_data is None:
+                raise ValueError("No pending entry data")
             else:
-                self._pending_entry_data[CONF_LIBRARY_USER_ID] = library_user_id
+                # Rebuild with user and validate
+                self._pending_entry_data = JellyfinEntryData(
+                    url=self._pending_entry_data.url,
+                    api_key=self._pending_entry_data.api_key,
+                    verify_ssl=self._pending_entry_data.verify_ssl,
+                    generate_upcoming=self._pending_entry_data.generate_upcoming,
+                    generate_yamc=self._pending_entry_data.generate_yamc,
+                    library_user_id=library_user_id,
+                )
                 self._library_user_id = library_user_id
                 return self._create_entry_from_pending(DOMAIN)
 
@@ -294,16 +308,16 @@ class JellyfinOptionsFlowHandler(JellyfinFlowBase, config_entries.OptionsFlow):
             self._generate_yamc = user_input[CONF_GENERATE_YAMC]
             needs_user = self._generate_upcoming or self._generate_yamc
 
-            self._pending_entry_data = {
-                CONF_URL: self._url,
-                CONF_API_KEY: self._api_key,
-                CONF_VERIFY_SSL: self._verify_ssl,
-                CONF_GENERATE_UPCOMING: self._generate_upcoming,
-                CONF_GENERATE_YAMC: self._generate_yamc,
-                CONF_LIBRARY_USER_ID: self._library_user_id if needs_user else None,
-            }
-
             if needs_user:
+                # Build with model_construct to defer validation until user is selected
+                self._pending_entry_data = JellyfinEntryData.model_construct(
+                    url=self._url,
+                    api_key=self._api_key,
+                    verify_ssl=self._verify_ssl,
+                    generate_upcoming=self._generate_upcoming,
+                    generate_yamc=self._generate_yamc,
+                    library_user_id=self._library_user_id,
+                )
                 try:
                     self._client = await self.hass.async_add_executor_job(
                         self._authenticate_client,
@@ -319,6 +333,14 @@ class JellyfinOptionsFlowHandler(JellyfinFlowBase, config_entries.OptionsFlow):
                     return await self.async_step_select_user()
             else:
                 self._library_user_id = None
+                self._pending_entry_data = JellyfinEntryData(
+                    url=self._url,
+                    api_key=self._api_key,
+                    verify_ssl=self._verify_ssl,
+                    generate_upcoming=self._generate_upcoming,
+                    generate_yamc=self._generate_yamc,
+                    library_user_id=None,
+                )
                 return self._create_entry_from_pending(DOMAIN)
 
         data_schema = {
@@ -342,8 +364,18 @@ class JellyfinOptionsFlowHandler(JellyfinFlowBase, config_entries.OptionsFlow):
             library_user_id = user_input.get(CONF_LIBRARY_USER_ID)
             if not library_user_id:
                 self._errors["base"] = ERROR_USER_REQUIRED
+            elif self._pending_entry_data is None:
+                raise ValueError("No pending entry data")
             else:
-                self._pending_entry_data[CONF_LIBRARY_USER_ID] = library_user_id
+                # Rebuild with user and validate
+                self._pending_entry_data = JellyfinEntryData(
+                    url=self._pending_entry_data.url,
+                    api_key=self._pending_entry_data.api_key,
+                    verify_ssl=self._pending_entry_data.verify_ssl,
+                    generate_upcoming=self._pending_entry_data.generate_upcoming,
+                    generate_yamc=self._pending_entry_data.generate_yamc,
+                    library_user_id=library_user_id,
+                )
                 self._library_user_id = library_user_id
                 return self._create_entry_from_pending(DOMAIN)
 
