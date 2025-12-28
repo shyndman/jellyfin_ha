@@ -13,8 +13,7 @@
             "user": {
                 "data": {
                     "url": "URL Serveur",
-                    "username": "Utilisateur",
-                    "password": "Mot de passe",
+                    "api_key": "Clé API",
                     "verify_ssl": "Vérification SSL",
                     "generate_upcoming": "Générer les données pour la carte Upcoming",
                     "generate_yamc": "Générer les données pour la carte YAMC"
@@ -38,8 +37,7 @@
             "user": {
                 "data": {
                     "url": "URL Serveur",
-                    "username": "Utilisateur",
-                    "password": "Mot de passe",
+                    "api_key": "Clé API",
                     "verify_ssl": "Vérification SSL",
                     "generate_upcoming": "Générer les données pour la carte Upcoming",
                     "generate_yamc": "Générer les données pour la carte YAMC"

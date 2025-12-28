@@ -13,8 +13,7 @@
             "user": {
                 "data": {
                     "url": "Host URL",
-                    "username": "Username",
-                    "password": "Password",
+                    "api_key": "API Key",
                     "verify_ssl": "Verify SSL host",
                     "generate_upcoming": "Generate Upcoming card data",
                     "generate_yamc": "Generate YAMC card data"
@@ -38,8 +37,7 @@
             "user": {
                 "data": {
                     "url": "Host URL",
-                    "username": "Username",
-                    "password": "Password",
+                    "api_key": "API Key",
                     "verify_ssl": "Verify SSL host",
                     "generate_upcoming": "Generate Upcoming card data",
                     "generate_yamc": "Generate YAMC card data"

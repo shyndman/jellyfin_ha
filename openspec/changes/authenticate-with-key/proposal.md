@@ -9,7 +9,7 @@ The current username/password authentication requires the integration to store u
 - **Config flow**: Replace username/password fields with a single API key field
 - **Authentication**: Use `client.authenticate()` with API key directly instead of `client.auth.login()`
 - **Device identity**: Remove device ID/name configuration (not needed for API key auth)
-- **Test connection**: Add a button to test the API key before saving configuration
+- **Validation**: Validate the API key during setup and show an error on failure
 
 ## Impact
 

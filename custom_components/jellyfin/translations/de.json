@@ -13,8 +13,7 @@
             "user": {
                 "data": {
                     "url": "Host URL",
-                    "username": "Benutzername",
-                    "password": "Passwort",
+                    "api_key": "API-Schlüssel",
                     "verify_ssl": "Verifiziere SSL-Host",
                     "generate_upcoming": "Generiere Bibliothekskarten für kommende Medien",
                     "generate_yamc": "Generiere YAMC-Daten"
@@ -38,8 +37,7 @@
             "user": {
                 "data": {
                     "url": "Host URL",
-                    "username": "Benutzername",
-                    "password": "Passwort",
+                    "api_key": "API-Schlüssel",
                     "verify_ssl": "Verifiziere SSL-Host",
                     "generate_upcoming": "Generiere Bibliothekskarten für kommende Medien",
                     "generate_yamc": "Generiere YAMC-Daten"

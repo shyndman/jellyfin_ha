@@ -3,7 +3,6 @@ import asyncio
 import json
 import logging
 import time
-import re
 import traceback
 import collections.abc
 from datetime import datetime, timedelta
@@ -23,10 +22,7 @@ from homeassistant.const import (  # pylint: disable=import-error
     ATTR_ENTITY_ID,
     ATTR_ID,
     CONF_URL,
-    CONF_USERNAME,
-    CONF_PASSWORD,
     CONF_VERIFY_SSL,
-    CONF_CLIENT_ID,
     EVENT_HOMEASSISTANT_STOP,
 )
 import homeassistant.helpers.config_validation as cv  # pylint: disable=import-error
@@ -55,19 +51,19 @@ from .const import (
     STATE_IDLE,
     STATE_PAUSED,
     STATE_PLAYING,
+    CONF_API_KEY,
     CONF_GENERATE_UPCOMING,
     CONF_GENERATE_YAMC,
     YAMC_PAGE_SIZE,
     PLAYLISTS,
 )
+from .url import normalize_server_url
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = ["sensor", "media_player"]
 UPDATE_UNLISTENER = None
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=30)
-
-PATH_REGEX = re.compile("^(https?://)?([^/:]+)(:[0-9]+)?(/.*)?$")
 
 SERVICE_SCHEMA = vol.Schema({
 })
@@ -242,11 +238,17 @@ async def async_remove_config_entry_device(
 class JellyfinDevice(object):
     """ Represents properties of an Jellyfin Device. """
 
-    def __init__(self, session, jf_manager):
+    def __init__(self, session, jf_manager, device_key: str):
         """Initialize Jellyfin device object."""
         self.jf_manager = jf_manager
         self.is_active = True
+        self._device_key = device_key
         self.update_session(session)
+
+    @property
+    def device_key(self) -> str:
+        """Return the stable device key ({DeviceName}.{UserId})."""
+        return self._device_key
 
     def update_session(self, session):
         """ Update session object. """
@@ -589,53 +591,36 @@ class JellyfinClientManager(object):
             raise ConfigEntryNotReady
 
     @staticmethod
-    def client_factory(config_entry):
+    def client_factory(verify_ssl: bool):
         client = JellyfinClient(allow_multiple_clients=True)
         client.config.data["app.default"] = True
-        client.config.app(
-            USER_APP_NAME, CLIENT_VERSION, USER_APP_NAME, config_entry[CONF_CLIENT_ID]
-        )
-        client.config.data["auth.ssl"] = config_entry[CONF_VERIFY_SSL]
+        client.config.data["app.name"] = USER_APP_NAME
+        client.config.data["app.version"] = CLIENT_VERSION
+        client.config.data["auth.ssl"] = verify_ssl
         return client
 
     def login(self):
         autolog(">>>")
 
-        self.server_url = self.config_entry[CONF_URL]
+        raw_url = self.config_entry[CONF_URL]
+        try:
+            self.server_url = normalize_server_url(raw_url)
+        except ValueError:
+            _LOGGER.error("Invalid Jellyfin URL: %s", raw_url)
+            return False
 
-        if self.server_url.endswith("/"):
-            self.server_url = self.server_url[:-1]
-
-        protocol, host, port, path = PATH_REGEX.match(self.server_url).groups()
-
-        if not protocol:
-            _LOGGER.warning("Adding http:// because it was not provided.")
-            protocol = "http://"
-
-        if protocol == "http://" and not port:
-            _LOGGER.warning("Adding port 8096 for insecure local http connection.")
-            _LOGGER.warning(
-                "If you want to connect to standard http port 80, use :80 in the url."
+        self.jf_client = self.client_factory(self.config_entry[CONF_VERIFY_SSL])
+        try:
+            self.jf_client.authenticate(
+                {"Servers": [{"AccessToken": self.config_entry[CONF_API_KEY], "address": self.server_url}]},
+                discover=False,
             )
-            port = ":8096"
-
-        if protocol == "https://" and not port:
-            port = ":443"
-
-        self.server_url = "".join(filter(bool, (protocol, host, port, path)))
-
-        self.jf_client = self.client_factory(self.config_entry)
-        status = self.jf_client.auth.connect_to_address(self.server_url)
-        if (status["State"] == 0): # Unavailable 
+            info = self.jf_client.jellyfin.get_system_info()
+        except Exception:
+            _LOGGER.error("Unable to authenticate with Jellyfin.", exc_info=True)
             return False
 
-        result = self.jf_client.auth.login(self.server_url, self.config_entry[CONF_USERNAME], self.config_entry[CONF_PASSWORD])
-        if "AccessToken" not in result:
-            return False
-
-        credentials = self.jf_client.auth.credentials.get_credentials()
-        self.jf_client.authenticate(credentials)
-        return True
+        return info is not None
 
     async def start(self):
         autolog(">>>")
@@ -775,14 +760,13 @@ class JellyfinClientManager(object):
                     pass
 
                 active_devices.append(dev_name)
-                if dev_name not in self._devices and \
-                        device['DeviceId'] != self.config_entry[CONF_CLIENT_ID]:
+                if dev_name not in self._devices:
                     _LOGGER.debug('New Jellyfin DeviceID: %s. Adding to device list.',
                                 dev_name)
-                    new = JellyfinDevice(device, self)
+                    new = JellyfinDevice(device, self, dev_name)
                     self._devices[dev_name] = new
                     new_devices.append(new)
-                elif device['DeviceId'] != self.config_entry[CONF_CLIENT_ID]:
+                else:
                     # Before we send in new data check for changes to state
                     # to decide if we need to fire the update callback
                     if not self._devices[dev_name].is_active:

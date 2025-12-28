@@ -30,20 +30,6 @@ The config flow SHALL collect an API key from the user instead of username and p
 - **THEN** the options form displays the current API key
 - **AND** allows the user to update it
 
-### Requirement: Test Connection Button
-
-The config flow SHALL provide a button to test the API key before saving the configuration.
-
-#### Scenario: Test connection succeeds
-- **WHEN** user clicks the "Test Connection" button with valid credentials
-- **THEN** the integration attempts to connect to the server
-- **AND** displays a success message
-
-#### Scenario: Test connection fails
-- **WHEN** user clicks the "Test Connection" button with invalid credentials
-- **THEN** the integration attempts to connect to the server
-- **AND** displays a failure message
-
 ## REMOVED Requirements
 
 ### Requirement: Username/Password Authentication

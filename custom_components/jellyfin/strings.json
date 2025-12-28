@@ -8,8 +8,7 @@
                 "description": "Configure the integration.",
                 "data": {
                     "url": "[%key:common::config_flow::data::url%]",
-                    "username": "[%key:common::config_flow::data::username%]",
-                    "password": "[%key:common::config_flow::data::password%]",
+                    "api_key": "API Key",
                     "verify_ssl": "[%key:common::config_flow::data::verify_ssl%]",
                     "generate_upcoming": "Generate Upcoming card data",
                     "generate_yamc": "Generate YAMC card data"
@@ -33,8 +32,7 @@
                 "description": "Configure the connection details.",
                 "data": {
                     "url": "[%key:common::config_flow::data::url%]",
-                    "username": "[%key:common::config_flow::data::username%]",
-                    "password": "[%key:common::config_flow::data::password%]",
+                    "api_key": "API Key",
                     "verify_ssl": "[%key:common::config_flow::data::verify_ssl%]",
                     "generate_upcoming": "Generate Upcoming card data",
                     "generate_yamc": "Generate YAMC card data"
