@@ -618,6 +618,9 @@ class JellyfinClientManager:
                 },
                 discover=False,
             )
+            # Set auth.user_id so {UserId} template substitution works in API calls
+            if self.config.library_user_id:
+                self.jf_client.config.data["auth.user_id"] = self.config.library_user_id
             info = self.jf_client.jellyfin.get_system_info()
         except Exception:
             _LOGGER.error("Unable to authenticate with Jellyfin.", exc_info=True)
