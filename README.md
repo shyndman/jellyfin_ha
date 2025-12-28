@@ -35,6 +35,10 @@ All thanks and rights goes to the author of the integration.
 
 - Browse and stream to a cast device (e.g. Chromecast)
 
+## Reference
+
+- The Jellyfin OpenAPI description lives at `docs/reference/openapi.json`.
+
 ### Services
 
 - `trigger_scan`: Trigger a server media scan
@@ -57,4 +61,3 @@ More configuration options can be found in the [upcoming-media-card](https://git
 ---
 
 #### [View Changelog](changelog/changelog.md)
-
