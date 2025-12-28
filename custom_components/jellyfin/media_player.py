@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import logging
-from typing import Mapping, MutableMapping, Optional, Sequence, Iterable, List, Tuple, Union
 
 from homeassistant.components.media_player import PLATFORM_SCHEMA, MediaPlayerEntity
 from homeassistant.components.media_player.const import (
@@ -138,8 +139,8 @@ class JellyfinMediaPlayer(MediaPlayerEntity):
         self,
         media_content_type: str,
         media_content_id: str,
-        media_image_id: Optional[str] = None,
-    ) -> Tuple[Optional[str], Optional[str]]:
+        media_image_id: str | None = None,
+    ) -> tuple[str | None, str | None]:
         """Fetch internally accessible image for media browser."""
         if media_content_id:
             return self.device.get_artwork(media_content_id)

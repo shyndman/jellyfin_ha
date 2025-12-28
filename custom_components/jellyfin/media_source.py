@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Tuple
 
 from homeassistant.components.media_source.error import MediaSourceError, Unresolvable
 from homeassistant.components.media_source.models import (
@@ -97,7 +96,7 @@ class JellyfinSource(MediaSource):
         return PlayMedia(t[0], t[1])
 
     async def async_browse_media(
-        self, item: MediaSourceItem, media_types: Tuple[str] = MEDIA_MIME_TYPES
+        self, item: MediaSourceItem, media_types: tuple[str, ...] = MEDIA_MIME_TYPES
     ) -> BrowseMediaSource:
         """Browse media."""
         autolog("<<<")
