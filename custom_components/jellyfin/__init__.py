@@ -7,7 +7,7 @@ import logging
 import time
 import traceback
 from datetime import timedelta
-from typing import Mapping
+from collections.abc import Mapping
 
 import dateutil.parser as dt
 import homeassistant.helpers.config_validation as cv  # pylint: disable=import-error
@@ -377,10 +377,10 @@ class JellyfinDevice:
         if not self.is_nowplaying:
             return None
         now_playing = self.session.NowPlayingItem
-        if now_playing is None or now_playing.ImageTags is None:
+        if now_playing is None or now_playing.image_tags is None:
             return None
 
-        image_tags = now_playing.ImageTags
+        image_tags = now_playing.image_tags
         if image_tags.Thumb is not None:
             image_type = "Thumb"
         elif image_tags.Primary is not None:

@@ -1,7 +1,7 @@
 """Typed representations of Jellyfin API payloads."""
 from __future__ import annotations
 
-from typing import Self, TypedDict
+from typing import Annotated, Self, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -115,7 +115,7 @@ class NowPlayingItemDto(BaseModel):
     Album: str | None = None
     Artists: list[str] | None = None
     AlbumArtist: str | None = None
-    ImageTags: ImageTags | None = None
+    image_tags: Annotated[ImageTags | None, Field(alias="ImageTags")] = None
 
 
 class SessionInfoDto(BaseModel):
