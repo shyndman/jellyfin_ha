@@ -14,14 +14,14 @@ class NameGuidPair(BaseModel):
 
 
 class UserItemDataDto(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     PlayedPercentage: float | None = Field(None, description="Completion percentage")
     Played: bool | None = Field(None, description="True when item is fully played")
 
 
 class BaseItemDto(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     Id: str
     Type: str
@@ -52,7 +52,7 @@ class BaseItemDto(BaseModel):
 
 
 class BaseItemDtoQueryResult(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     Items: list[BaseItemDto]
     TotalRecordCount: int
@@ -100,7 +100,7 @@ class ImageTags(BaseModel):
 class NowPlayingItemDto(BaseModel):
     """Media item currently playing in a session."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     # Non-nullable per spec
     Id: str
@@ -121,7 +121,7 @@ class NowPlayingItemDto(BaseModel):
 class SessionInfoDto(BaseModel):
     """Active session information from Jellyfin server."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     # Non-nullable per spec
     UserId: str
