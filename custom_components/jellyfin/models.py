@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 class NameGuidPair(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     Name: str | None = Field(None, description="Display name")
     Id: str | None = Field(None, description="Stable identifier")
@@ -67,7 +67,7 @@ class BaseItemDtoQueryResult(BaseModel):
 class PlayerStateInfo(BaseModel):
     """Playback state for a session."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     # Non-nullable per spec
     IsPaused: bool
@@ -150,7 +150,7 @@ class SessionInfoDto(BaseModel):
 class MediaStream(BaseModel):
     """Audio/video stream within a media source."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     # Non-nullable per spec
     Type: str  # "Audio", "Video", "Subtitle", etc.
@@ -165,7 +165,7 @@ class MediaStream(BaseModel):
 class MediaSourceInfo(BaseModel):
     """Media source (file/stream) for playback."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     # Non-nullable per spec
     SupportsDirectStream: bool
@@ -183,7 +183,7 @@ class MediaSourceInfo(BaseModel):
 class PlaybackInfoResponse(BaseModel):
     """Response from playback info endpoint."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     # Nullable per spec
     MediaSources: list[MediaSourceInfo] | None = None
