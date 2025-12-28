@@ -615,6 +615,16 @@ class JellyfinClientManager(object):
                 {"Servers": [{"AccessToken": self.config_entry[CONF_API_KEY], "address": self.server_url}]},
                 discover=False,
             )
+            # The REST helpers rely on config.data['auth.user_id'] to replace
+            # placeholders such as {UserId} in every request. Explicitly fetch
+            # the associated user to guarantee that value is set, even when we
+            # authenticate only with an API key.
+            user = self.jf_client.jellyfin._get("Users/Me")
+            user_id = user.get("Id") if isinstance(user, dict) else None
+            if not user_id:
+                _LOGGER.error("Authenticated, but Users/Me did not provide an Id")
+                return False
+            self.jf_client.config.data["auth.user_id"] = user_id
             info = self.jf_client.jellyfin.get_system_info()
         except Exception:
             _LOGGER.error("Unable to authenticate with Jellyfin.", exc_info=True)
