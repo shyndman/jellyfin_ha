@@ -6,6 +6,7 @@ import json
 import logging
 import time
 import traceback
+import uuid
 from datetime import timedelta
 from collections.abc import Mapping
 
@@ -583,11 +584,12 @@ class JellyfinClientManager:
             raise ConfigEntryNotReady
 
     @staticmethod
-    def client_factory(verify_ssl: bool):
+    def client_factory(verify_ssl: bool, device_id: str):
         client = JellyfinClient(allow_multiple_clients=True)
         client.config.data["app.default"] = True
         client.config.data["app.name"] = USER_APP_NAME
         client.config.data["app.version"] = CLIENT_VERSION
+        client.config.data["app.device_id"] = device_id
         client.config.data["auth.ssl"] = verify_ssl
         return client
 
@@ -600,7 +602,9 @@ class JellyfinClientManager:
             _LOGGER.error("Invalid Jellyfin URL: %s", self.config.url)
             return False
 
-        self.jf_client = self.client_factory(self.config.verify_ssl)
+        # Generate a deterministic device_id from the server URL
+        device_id = str(uuid.uuid5(uuid.NAMESPACE_URL, self.server_url))
+        self.jf_client = self.client_factory(self.config.verify_ssl, device_id)
         try:
             self.jf_client.authenticate(
                 {
