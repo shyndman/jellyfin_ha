@@ -657,6 +657,7 @@ class JellyfinClientManager:
                     sensor.schedule_update_ha_state(force_refresh=True)
             elif event_name == "Sessions":
                 raw = self.clean_none_dict_values(data)["value"]
+                _LOGGER.debug("Sessions (WebSocket): %s", raw)
                 self._sessions = [SessionInfoDto.model_validate(s) for s in raw]
                 self.update_device_list()
             else:
@@ -674,6 +675,7 @@ class JellyfinClientManager:
         raw_sessions = self.clean_none_dict_values(
             await self.hass.async_add_executor_job(self.jf_client.jellyfin._get, "Sessions")
         )
+        _LOGGER.debug("Sessions (initial fetch): %s", raw_sessions)
         self._sessions = [SessionInfoDto.model_validate(s) for s in raw_sessions]
         await self.update_data()
 
