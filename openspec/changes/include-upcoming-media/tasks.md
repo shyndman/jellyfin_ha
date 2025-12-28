@@ -1,6 +1,6 @@
-- [ ] Update config/constants to add `CONF_LIBRARY_USER_ID` (or similar) and migrate legacy entries by defaulting it to `None`.
-- [ ] Refactor `config_flow.py` so `async_step_user` only captures connection info, caches the authenticated client, and transitions to a new feature step.
-- [ ] Implement the new feature step that shows Upcoming/YAMC toggles plus a Jellyfin user dropdown (populated via the cached client) and persists the selected user id when required.
-- [ ] Mirror the same multi-step behavior in `JellyfinOptionsFlowHandler`, including validation when toggles are enabled but no user id is selected.
-- [ ] Thread the stored user id through `JellyfinClientManager` and the sensor helpers, replacing `{UserId}` placeholders and adding guards/logging for missing ids.
-- [ ] Add regression coverage (unit test or config-flow test harness) that exercises enabling Upcoming/YAMC, selecting a user, and verifying the stored config entry data.
+- [x] Update config/constants to add `CONF_LIBRARY_USER_ID` (or similar) and migrate legacy entries by defaulting it to `None`.
+- [x] Refactor `config_flow.py` so `async_step_user` only captures connection info, caches the authenticated client, and transitions to a new feature step.
+- [x] Implement the new feature step that shows Upcoming/YAMC toggles plus a Jellyfin user dropdown (populated via the cached client) and persists the selected user id when required.
+- [x] Mirror the same multi-step behavior in `JellyfinOptionsFlowHandler`, including validation when toggles are enabled but no user id is selected.
+- [x] Thread the stored user id through `JellyfinClientManager` and the sensor helpers, replacing `{UserId}` placeholders and adding guards/logging for missing ids.
+- [x] Add regression coverage (unit test or config-flow test harness) that exercises enabling Upcoming/YAMC, selecting a user, and verifying the stored config entry data.

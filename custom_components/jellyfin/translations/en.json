@@ -6,7 +6,9 @@
         },
         "error": {
             "cannot_connect": "Unable to connect",
-            "unknown": "Unknown Error"
+            "unknown": "Unknown Error",
+            "user_required": "Select a Jellyfin user before continuing.",
+            "user_fetch_failed": "Unable to list Jellyfin users. Ensure the API key can manage users."
         },
         "flow_title": "Jellyfin Configuration",
         "step": {
@@ -20,6 +22,13 @@
                 },
                 "description": "Configure the connection details.",
                 "title": "Jellyfin"
+            },
+            "select_user": {
+                "data": {
+                    "library_user_id": "Jellyfin user"
+                },
+                "description": "Choose which Jellyfin user powers Upcoming and YAMC data.",
+                "title": "Select Jellyfin user"
             }
         }
     },
@@ -30,7 +39,9 @@
         },
         "error": {
             "cannot_connect": "Unable to connect",
-            "unknown": "Unknown Error"
+            "unknown": "Unknown Error",
+            "user_required": "Select a Jellyfin user before continuing.",
+            "user_fetch_failed": "Unable to list Jellyfin users. Ensure the API key can manage users."
         },
         "flow_title": "Jellyfin Configuration",
         "step": {
@@ -44,6 +55,13 @@
                 },
                 "description": "Configure the connection details.",
                 "title": "Jellyfin"
+            },
+            "select_user": {
+                "data": {
+                    "library_user_id": "Jellyfin user"
+                },
+                "description": "Choose which Jellyfin user powers Upcoming and YAMC data.",
+                "title": "Select Jellyfin user"
             }
         }
     },

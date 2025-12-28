@@ -13,11 +13,20 @@
                     "generate_upcoming": "Generate Upcoming card data",
                     "generate_yamc": "Generate YAMC card data"
                 }
+            },
+            "select_user": {
+                "title": "Select Jellyfin user",
+                "description": "Choose which Jellyfin user powers Upcoming and YAMC data.",
+                "data": {
+                    "library_user_id": "Jellyfin user"
+                }
             }
         },
         "error": {
             "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
-            "unknown": "[%key:common::config_flow::error::unknown%]"
+            "unknown": "[%key:common::config_flow::error::unknown%]",
+            "user_required": "Select a Jellyfin user before continuing.",
+            "user_fetch_failed": "Unable to list Jellyfin users. Ensure the API key can manage users."
         },
         "abort": {
             "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
@@ -37,11 +46,20 @@
                     "generate_upcoming": "Generate Upcoming card data",
                     "generate_yamc": "Generate YAMC card data"
                 }
+            },
+            "select_user": {
+                "title": "Select Jellyfin user",
+                "description": "Choose which Jellyfin user powers Upcoming and YAMC data.",
+                "data": {
+                    "library_user_id": "Jellyfin user"
+                }
             }
         },
         "error": {
             "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
-            "unknown": "[%key:common::config_flow::error::unknown%]"
+            "unknown": "[%key:common::config_flow::error::unknown%]",
+            "user_required": "Select a Jellyfin user before continuing.",
+            "user_fetch_failed": "Unable to list Jellyfin users. Ensure the API key can manage users."
         },
         "abort": {
             "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",

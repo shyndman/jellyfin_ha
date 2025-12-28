@@ -33,6 +33,7 @@ STATE_OFF = 'Off'
 CONF_API_KEY = "api_key"
 CONF_GENERATE_UPCOMING = "generate_upcoming"
 CONF_GENERATE_YAMC = "generate_yamc"
+CONF_LIBRARY_USER_ID = "library_user_id"
 
 YAMC_PAGE_SIZE=7
 

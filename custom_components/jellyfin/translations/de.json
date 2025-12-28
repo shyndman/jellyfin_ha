@@ -6,7 +6,9 @@
         },
         "error": {
             "cannot_connect": "Verbindung nicht möglich",
-            "unknown": "Unbekannter Fehler"
+            "unknown": "Unbekannter Fehler",
+            "user_required": "Bitte wählen Sie einen Jellyfin-Benutzer aus, bevor Sie fortfahren.",
+            "user_fetch_failed": "Jellyfin-Benutzer konnten nicht geladen werden. Stellen Sie sicher, dass der API-Schlüssel Benutzer verwalten darf."
         },
         "flow_title": "Jellyfin Konfiguration",
         "step": {
@@ -20,6 +22,13 @@
                 },
                 "description": "Konfiguriere die Verbindungsdetails.",
                 "title": "Jellyfin"
+            },
+            "select_user": {
+                "data": {
+                    "library_user_id": "Jellyfin-Benutzer"
+                },
+                "description": "Wählen Sie den Jellyfin-Benutzer für Upcoming und YAMC.",
+                "title": "Jellyfin-Benutzer auswählen"
             }
         }
     },
@@ -30,7 +39,9 @@
         },
         "error": {
             "cannot_connect": "Verbindung nicht möglich",
-            "unknown": "Unknown Error"
+            "unknown": "Unknown Error",
+            "user_required": "Bitte wählen Sie einen Jellyfin-Benutzer aus, bevor Sie fortfahren.",
+            "user_fetch_failed": "Jellyfin-Benutzer konnten nicht geladen werden. Stellen Sie sicher, dass der API-Schlüssel Benutzer verwalten darf."
         },
         "flow_title": "Jellyfin Konfiguration",
         "step": {
@@ -44,6 +55,13 @@
                 },
                 "description": "Konfiguriere die Verbindungsdetails.",
                 "title": "Jellyfin"
+            },
+            "select_user": {
+                "data": {
+                    "library_user_id": "Jellyfin-Benutzer"
+                },
+                "description": "Wählen Sie den Jellyfin-Benutzer für Upcoming und YAMC.",
+                "title": "Jellyfin-Benutzer auswählen"
             }
         }
     },
