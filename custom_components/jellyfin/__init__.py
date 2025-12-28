@@ -664,7 +664,7 @@ class JellyfinClientManager:
             self.jf_client.jellyfin._get, "System/Info"
         )
         raw_sessions = self.clean_none_dict_values(
-            await self.hass.async_add_executor_job(self.jf_client.jellyfin.get_sessions)
+            await self.hass.async_add_executor_job(self.jf_client.jellyfin._get, "Sessions")
         )
         self._sessions = [SessionInfoDto.model_validate(s) for s in raw_sessions]
         await self.update_data()
