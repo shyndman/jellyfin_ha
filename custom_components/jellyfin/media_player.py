@@ -149,7 +149,9 @@ class JellyfinMediaPlayer(MediaPlayerEntity):
     async def async_browse_media(self, media_content_type=None, media_content_id=None):
         """Implement the media source."""
         _LOGGER.debug("-- async_browse_media: %s / %s", media_content_type, media_content_id)
-        return await async_library_items(self.jelly_cm, media_content_type, media_content_id)
+        return await async_library_items(
+            self.jelly_cm, media_content_type, media_content_id, user_id=self.device.user_id
+        )
 
     @property
     def available(self):

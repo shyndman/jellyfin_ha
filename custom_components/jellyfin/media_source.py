@@ -9,7 +9,7 @@ from homeassistant.components.media_source.models import (
     MediaSourceItem,
     PlayMedia,
 )
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 
 from homeassistant.components.media_player import BrowseError, BrowseMedia
 from homeassistant.components.media_source.const import MEDIA_MIME_TYPES, URI_SCHEME
@@ -19,7 +19,7 @@ from homeassistant.const import (  # pylint: disable=import-error
     CONF_URL,
 )
 
-from . import JellyfinClientManager, JellyfinDevice, autolog
+from . import JellyfinClientManager, autolog
 from .const import (
     DOMAIN,
     USER_APP_NAME,
@@ -99,20 +99,10 @@ class JellyfinSource(MediaSource):
         self, item: MediaSourceItem, media_types: tuple[str, ...] = MEDIA_MIME_TYPES
     ) -> BrowseMediaSource:
         """Browse media."""
-        autolog("<<<")
-
-        media_content_type, media_content_id = async_parse_identifier(item)
-        return await async_library_items(self.jelly_cm, media_content_type, media_content_id, canPlayList=False)
-
-@callback
-def async_parse_identifier(
-    item: MediaSourceItem,
-) -> tuple[str | None, str | None]:
-        """Parse identifier."""
-        if not item.identifier:
-            return None, None
-
-        return item.identifier, item.identifier
+        # Global media source browsing is not supported. Browse through a media player entity.
+        raise BrowseError(
+            "Jellyfin browsing is only available through media player entities"
+        )
 
 def Type2Mediatype(type):
     switcher = {
@@ -190,10 +180,12 @@ def IsPlayable(type, canPlayList):
     }
     return switcher.get(type)
 
-async def async_library_items(jelly_cm: JellyfinClientManager, 
-            media_content_type_in=None, 
+async def async_library_items(jelly_cm: JellyfinClientManager,
+            media_content_type_in=None,
             media_content_id_in=None,
-            canPlayList=True
+            canPlayList=True,
+            *,
+            user_id: str,
         ) -> BrowseMediaSource:
     """
     Create response payload to describe contents of a specific library.
@@ -259,7 +251,7 @@ async def async_library_items(jelly_cm: JellyfinClientManager,
         )
     _LOGGER.debug(f'-- async_library_items: 1')
 
-    items = await jelly_cm.get_items(query)
+    items = await jelly_cm.get_items(user_id, query)
     for item in items:
         if media_content_type in [None, "library", MediaClass.DIRECTORY, MediaType.ARTIST, MediaType.ALBUM, MediaType.PLAYLIST, MediaType.TVSHOW, MediaType.SEASON, MediaType.CHANNEL]:
             if item["IsFolder"]:

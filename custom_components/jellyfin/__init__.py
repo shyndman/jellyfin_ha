@@ -306,6 +306,11 @@ class JellyfinDevice:
         return self.session.UserName
 
     @property
+    def user_id(self) -> str:
+        """Return the user ID for this session."""
+        return self.session.UserId
+
+    @property
     def media_title(self) -> str | None:
         """Return title currently playing."""
         if self.session.NowPlayingItem is None:
@@ -446,7 +451,7 @@ class JellyfinDevice:
         return await self.jf_manager.get_item(id)
 
     async def get_items(self, query=None):
-        return await self.jf_manager.get_items(query)
+        return await self.jf_manager.get_items(self.user_id, query)
 
     async def get_artwork(self, media_id: str) -> tuple[str | None, str | None]:
         return await self.jf_manager.get_artwork(media_id)
@@ -1134,7 +1139,9 @@ class JellyfinClientManager:
             self.jf_client.jellyfin.get_item, id
         )
 
-    async def get_items(self, query=None):
+    async def get_items(self, user_id: str, query=None):
+        # Temporarily set auth.user_id for {UserId} template substitution
+        self.jf_client.config.data["auth.user_id"] = user_id
         response = await self.hass.async_add_executor_job(
             self.jf_client.jellyfin.users, "/Items", "GET", query
         )
