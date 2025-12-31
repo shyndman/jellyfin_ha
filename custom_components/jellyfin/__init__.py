@@ -463,8 +463,7 @@ class JellyfinDevice:
         """Send media commands to server."""
         params: dict[str, str | int] = {}
         if state == "Seek":
-            params["SeekPositionTicks"] = int(pos * 10000000)
-            params["static"] = "true"
+            params["seekPositionTicks"] = int(pos * 10000000)
 
         await self.jf_manager.set_playstate(self.session_id, state, params)
 
@@ -488,9 +487,9 @@ class JellyfinDevice:
         """Send previous track command to device."""
         return self.set_playstate("PreviousTrack")
 
-    def media_seek(self, position: float):
+    async def seek(self, position: float):
         """Send seek command to device."""
-        return self.set_playstate("Seek", position)
+        await self.set_playstate("Seek", position)
 
     async def play_media(self, media_id: str) -> None:
         await self.jf_manager.play_media(self.session_id, media_id)
