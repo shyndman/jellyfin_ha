@@ -275,11 +275,11 @@ class JellyfinMediaPlayer(MediaPlayerEntity):
         return self.device.media_artist
     
     @property
-    def supported_features(self):
+    def supported_features(self) -> MediaPlayerEntityFeature:
         """Flag media player features that are supported."""
         if self.supports_remote_control:
             return SUPPORT_JELLYFIN
-        return 0
+        return MediaPlayerEntityFeature(0)
 
     async def async_media_play(self):
         """Send play command."""
