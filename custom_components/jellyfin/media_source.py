@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.components.media_source.error import MediaSourceError, Unresolvable
 from homeassistant.components.media_source.models import (
     BrowseMediaSource,
     MediaSource,
@@ -11,7 +10,7 @@ from homeassistant.components.media_source.models import (
 )
 from homeassistant.core import HomeAssistant
 
-from homeassistant.components.media_player import BrowseError, BrowseMedia
+from homeassistant.components.media_player import BrowseError
 from homeassistant.components.media_source.const import MEDIA_MIME_TYPES, URI_SCHEME
 from homeassistant.components.media_player.const import MediaType, MediaClass
 
@@ -22,7 +21,6 @@ from homeassistant.const import (  # pylint: disable=import-error
 from . import JellyfinClientManager, autolog
 from .const import (
     DOMAIN,
-    USER_APP_NAME,
 )
 
 PLAYABLE_MEDIA_TYPES = [
@@ -58,10 +56,10 @@ _LOGGER = logging.getLogger(__name__)
 class UnknownMediaType(BrowseError):
     """Unknown media type."""
 
-async def async_get_media_source(hass: HomeAssistant):
+async def async_get_media_source(hass: HomeAssistant) -> JellyfinSource:
     """Set up Jellyfin media source."""
     entry = hass.config_entries.async_entries(DOMAIN)[0]
-    jelly_cm: JellyfinClientManager = hass.data[DOMAIN][entry.data[CONF_URL]]["manager"] if "manager" in hass.data[DOMAIN][entry.data[CONF_URL]] else None
+    jelly_cm: JellyfinClientManager = hass.data[DOMAIN][entry.data[CONF_URL]]["manager"]
     return JellyfinSource(hass, jelly_cm)
 
 class JellyfinSource(MediaSource):
@@ -89,11 +87,13 @@ class JellyfinSource(MediaSource):
         autolog("<<<")
 
         if not item or not item.identifier:
-            return None
+            raise BrowseError("No media item identifier provided")
 
         media_content_type, media_content_id = self.parse_mediasource_identifier(item.identifier)
-        t = await self.jelly_cm.get_stream_url(media_content_id, media_content_type)
-        return PlayMedia(t[0], t[1])
+        url, mime_type, _ = await self.jelly_cm.get_stream_url(media_content_id, media_content_type)
+        if url is None or mime_type is None:
+            raise BrowseError(f"Could not resolve stream URL for {media_content_id}")
+        return PlayMedia(url, mime_type)
 
     async def async_browse_media(
         self, item: MediaSourceItem, media_types: tuple[str, ...] = MEDIA_MIME_TYPES
@@ -104,8 +104,8 @@ class JellyfinSource(MediaSource):
             "Jellyfin browsing is only available through media player entities"
         )
 
-def Type2Mediatype(type):
-    switcher = {
+def Type2Mediatype(jellyfin_type: str) -> MediaType | MediaClass | None:
+    switcher: dict[str, MediaType | MediaClass] = {
         "Movie": MediaType.MOVIE,
         "Series": MediaType.TVSHOW,
         "Season": MediaType.SEASON,
@@ -121,10 +121,11 @@ def Type2Mediatype(type):
         "MusicArtist": MediaType.ARTIST,
         "MusicAlbum": MediaType.ALBUM,
     }
-    return switcher.get(type)
+    return switcher.get(jellyfin_type)
 
-def Type2Mimetype(type):
-    switcher = {
+
+def Type2Mimetype(jellyfin_type: str) -> str | MediaType | MediaClass | None:
+    switcher: dict[str, str | MediaType | MediaClass] = {
         "Movie": "video/mp4",
         "Series": MediaType.TVSHOW,
         "Season": MediaType.SEASON,
@@ -140,10 +141,11 @@ def Type2Mimetype(type):
         "MusicArtist": MediaType.ARTIST,
         "MusicAlbum": MediaType.ALBUM,
     }
-    return switcher.get(type)
+    return switcher.get(jellyfin_type)
 
-def Type2Mediaclass(type):
-    switcher = {
+
+def Type2Mediaclass(jellyfin_type: str) -> MediaClass | None:
+    switcher: dict[str, MediaClass] = {
         "Movie": MediaClass.MOVIE,
         "Series": MediaClass.TV_SHOW,
         "Season": MediaClass.SEASON,
@@ -159,10 +161,11 @@ def Type2Mediaclass(type):
         "MusicAlbum": MediaClass.ALBUM,
         "Audio": MediaClass.TRACK,
     }
-    return switcher.get(type)
+    return switcher.get(jellyfin_type)
 
-def IsPlayable(type, canPlayList):
-    switcher = {
+
+def IsPlayable(jellyfin_type: str, canPlayList: bool) -> bool | None:
+    switcher: dict[str, bool] = {
         "Movie": True,
         "Series": canPlayList,
         "Season": canPlayList,
@@ -178,15 +181,16 @@ def IsPlayable(type, canPlayList):
         "MusicAlbum": canPlayList,
         "Audio": True,
     }
-    return switcher.get(type)
+    return switcher.get(jellyfin_type)
 
-async def async_library_items(jelly_cm: JellyfinClientManager,
-            media_content_type_in=None,
-            media_content_id_in=None,
-            canPlayList=True,
-            *,
-            user_id: str,
-        ) -> BrowseMediaSource:
+async def async_library_items(
+    jelly_cm: JellyfinClientManager,
+    media_content_type_in: str | None = None,
+    media_content_id_in: str | None = None,
+    canPlayList: bool = True,
+    *,
+    user_id: str,
+) -> BrowseMediaSource:
     """
     Create response payload to describe contents of a specific library.
 
@@ -197,7 +201,7 @@ async def async_library_items(jelly_cm: JellyfinClientManager,
     library_info = None
     query = None
 
-    if (media_content_type_in is None):
+    if media_content_type_in is None or media_content_id_in is None:
         media_content_type = None
         media_content_id = None
     else:
@@ -216,6 +220,7 @@ async def async_library_items(jelly_cm: JellyfinClientManager,
             children=[],
         )
     elif media_content_type in [MediaClass.DIRECTORY, MediaType.ARTIST, MediaType.ALBUM, MediaType.PLAYLIST, MediaType.TVSHOW, MediaType.SEASON, MediaType.CHANNEL]:
+        assert media_content_id is not None  # Guaranteed by previous branch
         query = {
             "ParentId": media_content_id,
             "sortBy": "SortName",
@@ -223,18 +228,20 @@ async def async_library_items(jelly_cm: JellyfinClientManager,
         }
 
         parent_item = await jelly_cm.get_item(media_content_id)
+        item_type = str(parent_item["Type"])
         library_info = BrowseMediaSource(
             domain=DOMAIN,
             identifier=f'{media_content_type}{IDENTIFIER_SPLIT}{media_content_id}',
             media_class=media_content_type,
             media_content_type=media_content_type,
-            title=parent_item["Name"],
-            can_play=IsPlayable(parent_item["Type"], canPlayList),
+            title=str(parent_item["Name"]),
+            can_play=IsPlayable(item_type, canPlayList),
             can_expand=True,
             thumbnail=jelly_cm.get_artwork_url(media_content_id),
             children=[],
         )
     else:
+        assert media_content_id is not None  # Guaranteed by previous branch
         query = {
             "Id": media_content_id
         }
@@ -249,46 +256,52 @@ async def async_library_items(jelly_cm: JellyfinClientManager,
             thumbnail=jelly_cm.get_artwork_url(media_content_id),
             children=[],
         )
-    _LOGGER.debug(f'-- async_library_items: 1')
+    _LOGGER.debug('-- async_library_items: 1')
 
+    assert library_info is not None  # Always set in one of the branches above
+    children: list[BrowseMediaSource] = list(library_info.children) if library_info.children else []
     items = await jelly_cm.get_items(user_id, query)
     for item in items:
+        item_type = str(item["Type"])
+        item_id = str(item["Id"])
+        item_name = str(item["Name"])
         if media_content_type in [None, "library", MediaClass.DIRECTORY, MediaType.ARTIST, MediaType.ALBUM, MediaType.PLAYLIST, MediaType.TVSHOW, MediaType.SEASON, MediaType.CHANNEL]:
             if item["IsFolder"]:
                 library_info.children_media_class = MediaClass.DIRECTORY
-                library_info.children.append(BrowseMediaSource(
+                children.append(BrowseMediaSource(
                     domain=DOMAIN,
-                    identifier=f'{Type2Mediatype(item["Type"])}{IDENTIFIER_SPLIT}{item["Id"]}',
-                    media_class=Type2Mediaclass(item["Type"]),
-                    media_content_type=Type2Mimetype(item["Type"]),
-                    title=item["Name"],
-                    can_play=IsPlayable(item["Type"], canPlayList),
+                    identifier=f'{Type2Mediatype(item_type)}{IDENTIFIER_SPLIT}{item_id}',
+                    media_class=Type2Mediaclass(item_type),
+                    media_content_type=Type2Mimetype(item_type),
+                    title=item_name,
+                    can_play=IsPlayable(item_type, canPlayList),
                     can_expand=True,
                     children=[],
-                    thumbnail=jelly_cm.get_artwork_url(item["Id"])
+                    thumbnail=jelly_cm.get_artwork_url(item_id)
                 ))
             else:
-                library_info.children_media_class = Type2Mediaclass(item["Type"])
-                library_info.children.append(BrowseMediaSource(
+                library_info.children_media_class = Type2Mediaclass(item_type)
+                children.append(BrowseMediaSource(
                     domain=DOMAIN,
-                    identifier=f'{Type2Mediatype(item["Type"])}{IDENTIFIER_SPLIT}{item["Id"]}',
-                    media_class=Type2Mediaclass(item["Type"]),
-                    media_content_type=Type2Mimetype(item["Type"]),
-                    title=item["Name"],
-                    can_play=IsPlayable(item["Type"], canPlayList),
+                    identifier=f'{Type2Mediatype(item_type)}{IDENTIFIER_SPLIT}{item_id}',
+                    media_class=Type2Mediaclass(item_type),
+                    media_content_type=Type2Mimetype(item_type),
+                    title=item_name,
+                    can_play=IsPlayable(item_type, canPlayList),
                     can_expand=False,
                     children=[],
-                    thumbnail=jelly_cm.get_artwork_url(item["Id"])
+                    thumbnail=jelly_cm.get_artwork_url(item_id)
                 ))
         else:
             library_info.domain=DOMAIN
-            library_info.identifier=f'{Type2Mediatype(item["Type"])}{IDENTIFIER_SPLIT}{item["Id"]}',
-            library_info.title = item["Name"]
-            library_info.media_content_type = Type2Mimetype(item["Type"])
-            library_info.media_class = Type2Mediaclass(item["Type"])
+            library_info.identifier=f'{Type2Mediatype(item_type)}{IDENTIFIER_SPLIT}{item_id}',
+            library_info.title = item_name
+            library_info.media_content_type = Type2Mimetype(item_type)
+            library_info.media_class = Type2Mediaclass(item_type)
             library_info.can_expand = False
-            library_info.can_play=IsPlayable(item["Type"], canPlayList),
+            library_info.can_play=IsPlayable(item_type, canPlayList),
             break
 
+    library_info.children = children
     _LOGGER.debug(f'<< async_library_items {library_info.as_dict()}')
     return library_info

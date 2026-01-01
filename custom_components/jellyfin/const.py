@@ -1,4 +1,5 @@
 """Constants for the jellyfin integration."""
+from typing import TypedDict
 
 DOMAIN = "jellyfin"
 SIGNAL_STATE_UPDATED = "{}.updated".format(DOMAIN)
@@ -40,7 +41,14 @@ YAMC_PAGE_SIZE=7
 # Item types that support the PlaybackInfo endpoint (can have stream URLs fetched)
 PLAYABLE_ITEM_TYPES = frozenset({"Movie", "Episode", "Audio", "Video", "MusicVideo"})
 
-PLAYLISTS = [
+
+class PlaylistDef(TypedDict):
+    name: str
+    description: str
+    query: dict[str, str]
+
+
+PLAYLISTS: list[PlaylistDef] = [
     {
         "name": "latest_movies",
         "description": "Latest Movies", 
