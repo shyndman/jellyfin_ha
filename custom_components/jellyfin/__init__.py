@@ -9,6 +9,7 @@ import traceback
 import uuid
 from datetime import timedelta
 from collections.abc import Mapping
+from typing import Any, TypedDict, cast
 
 import dateutil.parser as dt
 import homeassistant.helpers.config_validation as cv  # pylint: disable=import-error
@@ -68,8 +69,15 @@ from .url import normalize_server_url
 
 _LOGGER = logging.getLogger(__name__)
 
+
+class _SessionsEventData(TypedDict):
+    """WebSocket event data for Sessions events."""
+
+    value: list[dict[str, Any]]
+
+
 PLATFORMS = ["sensor", "media_player"]
-UPDATE_UNLISTENER = None
+_update_unlistener: collections.abc.Callable[[], None] | None = None
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=30)
 
 SERVICE_SCHEMA = vol.Schema({})
@@ -101,7 +109,13 @@ BROWSE_SERVICE_SCHEMA = SERVICE_SCHEMA.extend(
     {vol.Required(ATTR_ENTITY_ID): cv.entity_id, vol.Required(ATTR_ID): cv.string}
 )
 
-SERVICE_TO_METHOD = {
+
+class _ServiceDef(TypedDict):
+    method: str
+    schema: vol.Schema
+
+
+SERVICE_TO_METHOD: dict[str, _ServiceDef] = {
     SERVICE_SCAN: {"method": "async_trigger_scan", "schema": SCAN_SERVICE_SCHEMA},
     SERVICE_BROWSE: {"method": "async_browse_item", "schema": BROWSE_SERVICE_SCHEMA},
     SERVICE_DELETE: {"method": "async_delete_item", "schema": DELETE_SERVICE_SCHEMA},
@@ -117,33 +131,37 @@ SERVICE_TO_METHOD = {
 }
 
 
-def autolog(message):
+def autolog(message: str) -> None:
     "Automatically log the current function details."
     import inspect
 
     # Get the previous frame in the stack, otherwise it would
     # be this function!!!
-    func = inspect.currentframe().f_back.f_code
+    frame = inspect.currentframe()
+    if frame is None or frame.f_back is None:
+        _LOGGER.debug("%s: <unknown frame>", message)
+        return
+    func = frame.f_back.f_code
     # Dump the message + the name of this function to the log.
     _LOGGER.debug(
-        "%s: %s in %s:%i"
-        % (message, func.co_name, func.co_filename, func.co_firstlineno)
+        "%s: %s in %s:%i",
+        message, func.co_name, func.co_filename, func.co_firstlineno,
     )
 
 
-async def async_setup(hass: HomeAssistant, config: dict):
+async def async_setup(hass: HomeAssistant, config: Mapping[str, object]) -> bool:
     if DOMAIN not in hass.data:
         hass.data[DOMAIN] = {}
 
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     autolog("<<<")
 
-    global UPDATE_UNLISTENER
-    if UPDATE_UNLISTENER:
-        UPDATE_UNLISTENER()
+    global _update_unlistener
+    if _update_unlistener:
+        _update_unlistener()
 
     if not config_entry.unique_id:
         hass.config_entries.async_update_entry(
@@ -151,14 +169,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
         )
 
     # Merge entry data and options, then validate as JellyfinEntryData
-    config_dict: dict = dict(config_entry.data)
+    config_dict: dict[str, object] = dict(config_entry.data)
     config_dict.update(config_entry.options)
     if config_entry.options:
         hass.config_entries.async_update_entry(config_entry, data=config_dict, options={})
 
     config = JellyfinEntryData.model_validate(config_dict)
 
-    UPDATE_UNLISTENER = config_entry.add_update_listener(_update_listener)
+    _update_unlistener = config_entry.add_update_listener(_update_listener)
 
     hass.data[DOMAIN][config.url] = {}
     _jelly = JellyfinClientManager(hass, config)
@@ -169,24 +187,31 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
         _LOGGER.error("Cannot connect to Jellyfin server.")
         raise ConfigEntryNotReady
 
-    async def async_service_handler(service):
+    async def async_service_handler(service: object) -> None:
         """Map services to methods"""
-        method = SERVICE_TO_METHOD.get(service.service)
+        service_name = getattr(service, "service", None)
+        service_data = getattr(service, "data", {})
+        method = SERVICE_TO_METHOD.get(service_name) if service_name else None
+        if method is None:
+            _LOGGER.warning("Unknown service: %s", service_name)
+            return
+
+        method_name = method["method"]
         params = {
-            key: value for key, value in service.data.items() if key != "entity_id"
+            key: value for key, value in service_data.items() if key != "entity_id"
         }
 
-        entity_id = service.data.get(ATTR_ENTITY_ID)
+        entity_id = service_data.get(ATTR_ENTITY_ID)
 
         for sensor in hass.data[DOMAIN][config.url]["sensor"]["entities"]:
             if sensor.entity_id == entity_id:
-                await getattr(sensor, method["method"])(**params)
+                await getattr(sensor, method_name)(**params)
 
         for media_player in hass.data[DOMAIN][config.url]["media_player"][
             "entities"
         ]:
             if media_player.entity_id == entity_id:
-                await getattr(media_player, method["method"])(**params)
+                await getattr(media_player, method_name)(**params)
 
     for my_service in SERVICE_TO_METHOD:
         schema = SERVICE_TO_METHOD[my_service].get("schema", SERVICE_SCHEMA)
@@ -204,7 +229,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
 
     async_dispatcher_send(hass, SIGNAL_STATE_UPDATED)
 
-    async def stop_jellyfin(event):
+    async def stop_jellyfin(event: object) -> None:
         """Stop Jellyfin connection."""
         await _jelly.stop()
 
@@ -213,7 +238,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry):
+async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     _LOGGER.info("Unloading jellyfin")
 
     unload_ok = all(
@@ -233,7 +258,7 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     return unload_ok
 
 
-async def _update_listener(hass: HomeAssistant, config_entry):
+async def _update_listener(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
     """Update listener."""
     _LOGGER.debug("reload triggered")
     await hass.config_entries.async_reload(config_entry.entry_id)
@@ -445,7 +470,7 @@ class JellyfinDevice:
     async def get_item(self, id: str):
         return await self.jf_manager.get_item(id)
 
-    async def get_items(self, query=None):
+    async def get_items(self, query: dict[str, object] | None = None) -> list[dict[str, object]]:
         return await self.jf_manager.get_items(query)
 
     async def get_artwork(self, media_id: str) -> tuple[str | None, str | None]:
@@ -456,7 +481,7 @@ class JellyfinDevice:
 
     async def set_playstate(self, state: str, pos: float = 0) -> None:
         """Send media commands to server."""
-        params: dict[str, str | int] = {}
+        params: dict[str, object] = {}
         if state == "Seek":
             params["SeekPositionTicks"] = int(pos * 10000000)
             params["static"] = "true"
@@ -495,10 +520,23 @@ class JellyfinDevice:
 
 
 class JellyfinClientManager:
-    def __init__(self, hass: HomeAssistant, config: JellyfinEntryData):
+    hass: HomeAssistant
+    callback: collections.abc.Callable[[JellyfinClient, str, object], None]
+    jf_client: JellyfinClient | None
+    is_stopping: bool
+    _event_loop: asyncio.AbstractEventLoop
+    host: str
+    _info: dict[str, object] | None
+    config: JellyfinEntryData
+    server_url: str
+    _yamc_cur_page: int
+    _last_playlist: str
+    _last_search: str
+
+    def __init__(self, hass: HomeAssistant, config: JellyfinEntryData) -> None:
         self.hass = hass
         self.callback = lambda client, event_name, data: None
-        self.jf_client: JellyfinClient | None = None
+        self.jf_client = None
         self.is_stopping = True
         self._event_loop = hass.loop
 
@@ -518,12 +556,19 @@ class JellyfinClientManager:
         self._devices: dict[str, JellyfinDevice] = {}
 
         # Callbacks
-        self._new_devices_callbacks: list = []
-        self._stale_devices_callbacks: list = []
-        self._update_callbacks: list = []
+        self._new_devices_callbacks: list[collections.abc.Callable[[object], None]] = []
+        self._stale_devices_callbacks: list[collections.abc.Callable[[object], None]] = []
+        self._update_callbacks: list[tuple[collections.abc.Callable[[object], None], str]] = []
+
+    @property
+    def _client(self) -> JellyfinClient:
+        """Return the Jellyfin client, raising if not initialized."""
+        if self.jf_client is None:
+            raise RuntimeError("JellyfinClient not initialized - call login() first")
+        return self.jf_client
 
     @staticmethod
-    def expo(max_value=None):
+    def expo(max_value: int | None = None) -> collections.abc.Generator[int]:
         n = 0
         while True:
             a = 2**n
@@ -534,7 +579,7 @@ class JellyfinClientManager:
                 yield max_value
 
     @staticmethod
-    def clean_none_dict_values(obj):
+    def clean_none_dict_values(obj: object) -> object:
         """
         Recursively remove keys with a value of None
         """
@@ -607,7 +652,7 @@ class JellyfinClientManager:
         device_id = str(uuid.uuid5(uuid.NAMESPACE_URL, self.server_url))
         self.jf_client = self.client_factory(self.config.verify_ssl, device_id)
         try:
-            self.jf_client.authenticate(
+            self._client.authenticate(
                 {
                     "Servers": [
                         {
@@ -620,8 +665,8 @@ class JellyfinClientManager:
             )
             # Set auth.user_id so {UserId} template substitution works in API calls
             if self.config.library_user_id:
-                self.jf_client.config.data["auth.user_id"] = self.config.library_user_id
-            info = self.jf_client.jellyfin.get_system_info()
+                self._client.config.data["auth.user_id"] = self.config.library_user_id
+            info = self._client.jellyfin.get_system_info()
         except Exception:
             _LOGGER.error("Unable to authenticate with Jellyfin.", exc_info=True)
             return False
@@ -631,10 +676,10 @@ class JellyfinClientManager:
     async def start(self):
         autolog(">>>")
 
-        def event(event_name, data):
+        def event(event_name: str, data: object) -> None:
             _LOGGER.debug("Event: %s", event_name)
             if event_name == "WebSocketConnect":
-                self.jf_client.wsc.send("SessionsStart", "0,1500")
+                self._client.wsc.send("SessionsStart", "0,1500")
             elif event_name == "WebSocketDisconnect":
                 timeout_gen = self.expo(100)
                 while not self.is_stopping:
@@ -644,36 +689,40 @@ class JellyfinClientManager:
                             timeout
                         )
                     )
-                    self.jf_client.stop()
+                    self._client.stop()
                     time.sleep(timeout)
                     if self.login():
-                        self.jf_client.callback = event
-                        self.jf_client.callback_ws = event
-                        self.jf_client.start(True)
+                        self._client.callback = event
+                        self._client.callback_ws = event
+                        self._client.start(True)
                         break
             elif event_name in ("LibraryChanged", "UserDataChanged"):
                 for sensor in self.hass.data[DOMAIN][self.host]["sensor"]["entities"]:
                     autolog("LibraryChanged: trigger update")
                     sensor.schedule_update_ha_state(force_refresh=True)
             elif event_name == "Sessions":
-                raw = self.clean_none_dict_values(data)["value"]
+                cleaned = cast(_SessionsEventData, self.clean_none_dict_values(data))
+                raw = cleaned["value"]
                 _LOGGER.debug("Sessions (WebSocket): %s", raw)
                 self._sessions = [SessionInfoDto.model_validate(s) for s in raw]
                 self.update_device_list()
             else:
-                self.callback(self.jf_client, event_name, data)
+                self.callback(self._client, event_name, data)
 
-        self.jf_client.callback = event
-        self.jf_client.callback_ws = event
+        self._client.callback = event
+        self._client.callback_ws = event
 
-        await self.hass.async_add_executor_job(self.jf_client.start, True)
+        await self.hass.async_add_executor_job(self._client.start, True)
         self.is_stopping = False
 
         self._info = await self.hass.async_add_executor_job(
-            self.jf_client.jellyfin._get, "System/Info"
+            self._client.jellyfin._get, "System/Info"
         )
-        raw_sessions = self.clean_none_dict_values(
-            await self.hass.async_add_executor_job(self.jf_client.jellyfin._get, "Sessions")
+        raw_sessions = cast(
+            list[dict[str, Any]],
+            self.clean_none_dict_values(
+                await self.hass.async_add_executor_job(self._client.jellyfin._get, "Sessions")
+            ),
         )
         _LOGGER.debug("Sessions (initial fetch): %s", raw_sessions)
         self._sessions = [SessionInfoDto.model_validate(s) for s in raw_sessions]
@@ -683,7 +732,7 @@ class JellyfinClientManager:
         autolog("<<<")
 
         self.is_stopping = True
-        await self.hass.async_add_executor_job(self.jf_client.stop)
+        await self.hass.async_add_executor_job(self._client.stop)
 
     async def update_data(self):
         autolog("<<<")
@@ -697,7 +746,7 @@ class JellyfinClientManager:
                 self._data = None
             else:
                 raw_upcoming = await self.hass.async_add_executor_job(
-                    self.jf_client.jellyfin.shows,
+                    self._client.jellyfin.shows,
                     "/NextUp",
                     {
                         "Limit": YAMC_PAGE_SIZE,
@@ -738,11 +787,11 @@ class JellyfinClientManager:
 
                 if self._last_playlist == "nextup":
                     raw_yamc = await self.hass.async_add_executor_job(
-                        self.jf_client.jellyfin.shows, "/NextUp", query
+                        self._client.jellyfin.shows, "/NextUp", query
                     )
                 else:
                     raw_yamc = await self.hass.async_add_executor_job(
-                        self.jf_client.jellyfin.items, "", "GET", query
+                        self._client.jellyfin.items, "", "GET", query
                     )
 
                 self._yamc = BaseItemDtoQueryResult.model_validate(raw_yamc)
@@ -1100,66 +1149,66 @@ class JellyfinClientManager:
 
     async def trigger_scan(self):
         await self.hass.async_add_executor_job(
-            self.jf_client.jellyfin._post, "Library/Refresh"
+            self._client.jellyfin._post, "Library/Refresh"
         )
 
-    async def delete_item(self, id):
+    async def delete_item(self, id: str) -> None:
         await self.hass.async_add_executor_job(
-            self.jf_client.jellyfin.items, f"/{id}", "DELETE"
+            self._client.jellyfin.items, f"/{id}", "DELETE"
         )
         await self.update_data()
 
-    async def search_item(self, search_term):
+    async def search_item(self, search_term: str) -> None:
         self._yamc_cur_page = 1
         self._last_search = search_term
         await self.update_data()
 
-    async def yamc_set_page(self, page):
+    async def yamc_set_page(self, page: int) -> None:
         self._yamc_cur_page = page
         await self.update_data()
 
-    async def yamc_set_playlist(self, playlist):
+    async def yamc_set_playlist(self, playlist: str) -> None:
         self._last_search = ""
         self._last_playlist = playlist
         await self.update_data()
 
     def get_server_url(self) -> str:
-        return self.jf_client.config.data["auth.server"]
+        return self._client.config.data["auth.server"]
 
     def get_auth_token(self) -> str:
-        return self.jf_client.config.data["auth.token"]
+        return self._client.config.data["auth.token"]
 
-    async def get_item(self, id):
+    async def get_item(self, id: str) -> dict[str, object]:
         return await self.hass.async_add_executor_job(
-            self.jf_client.jellyfin.get_item, id
+            self._client.jellyfin.get_item, id
         )
 
-    async def get_items(self, query=None):
+    async def get_items(self, query: dict[str, object] | None = None) -> list[dict[str, object]]:
         response = await self.hass.async_add_executor_job(
-            self.jf_client.jellyfin.users, "/Items", "GET", query
+            self._client.jellyfin.users, "/Items", "GET", query
         )
         # _LOGGER.debug("get_items: %s | %s", str(query), str(response))
         return response["Items"]
 
-    async def set_playstate(self, session_id, state, params):
+    async def set_playstate(self, session_id: str, state: str, params: dict[str, object]) -> None:
         await self.hass.async_add_executor_job(
-            self.jf_client.jellyfin.post_session,
+            self._client.jellyfin.post_session,
             session_id,
             "Playing/%s" % state,
             params,
         )
 
-    async def play_media(self, session_id, media_id):
+    async def play_media(self, session_id: str, media_id: str) -> None:
         params = {"playCommand": "PlayNow", "itemIds": media_id}
         await self.hass.async_add_executor_job(
-            self.jf_client.jellyfin.post_session, session_id, "Playing", params
+            self._client.jellyfin.post_session, session_id, "Playing", params
         )
 
-    async def view_media(self, session_id, media_id):
+    async def view_media(self, session_id: str, media_id: str) -> None:
         item = await self.hass.async_add_executor_job(
-            self.jf_client.jellyfin.get_item, media_id
+            self._client.jellyfin.get_item, media_id
         )
-        _LOGGER.debug(f"view_media: {str(item)}")
+        _LOGGER.debug("view_media: %s", str(item))
 
         params = {
             "itemId": media_id,
@@ -1167,17 +1216,17 @@ class JellyfinClientManager:
             "itemName": item["Name"],
         }
         await self.hass.async_add_executor_job(
-            self.jf_client.jellyfin.post_session, session_id, "Viewing", params
+            self._client.jellyfin.post_session, session_id, "Viewing", params
         )
 
     async def get_artwork(
-        self, media_id: str, type: str = "Primary"
+        self, media_id: str, artwork_type: str = "Primary"
     ) -> tuple[str | None, str | None]:
         query = {"format": "PNG", "maxWidth": 500, "maxHeight": 500}
         image = await self.hass.async_add_executor_job(
-            self.jf_client.jellyfin.items,
+            self._client.jellyfin.items,
             "GET",
-            "%s/Images/%s" % (media_id, type),
+            "%s/Images/%s" % (media_id, artwork_type),
             query,
         )
         if image is not None:
@@ -1185,12 +1234,12 @@ class JellyfinClientManager:
 
         return (None, None)
 
-    def get_artwork_url(self, media_id, type="Primary") -> str:
-        return self.jf_client.jellyfin.artwork(media_id, type, 500)
+    def get_artwork_url(self, media_id: str, artwork_type: str = "Primary") -> str:
+        return self._client.jellyfin.artwork(media_id, artwork_type, 500)
 
-    async def get_play_info(self, media_id, profile):
+    async def get_play_info(self, media_id: str, profile: object) -> object:
         return await self.hass.async_add_executor_job(
-            self.jf_client.jellyfin.get_play_info, media_id, profile
+            self._client.jellyfin.get_play_info, media_id, profile
         )
 
     async def get_stream_url(
@@ -1338,7 +1387,7 @@ class JellyfinClientManager:
     @property
     def api(self):
         """Return the api."""
-        return self.jf_client.jellyfin
+        return self._client.jellyfin
 
     @property
     def devices(self) -> Mapping[str, JellyfinDevice]:
@@ -1351,40 +1400,48 @@ class JellyfinClientManager:
 
     # Callbacks
 
-    def add_new_devices_callback(self, callback):
+    def add_new_devices_callback(
+        self, callback: collections.abc.Callable[[object], None]
+    ) -> None:
         """Register as callback for when new devices are added."""
         self._new_devices_callbacks.append(callback)
         _LOGGER.debug("Added new devices callback to %s", callback)
 
-    def _do_new_devices_callback(self, msg):
+    def _do_new_devices_callback(self, msg: object) -> None:
         """Call registered callback functions."""
         for callback in self._new_devices_callbacks:
             _LOGGER.debug("Devices callback %s", callback)
             self._event_loop.call_soon(callback, msg)
 
-    def add_stale_devices_callback(self, callback):
+    def add_stale_devices_callback(
+        self, callback: collections.abc.Callable[[object], None]
+    ) -> None:
         """Register as callback for when stale devices exist."""
         self._stale_devices_callbacks.append(callback)
         _LOGGER.debug("Added stale devices callback to %s", callback)
 
-    def _do_stale_devices_callback(self, msg):
+    def _do_stale_devices_callback(self, msg: object) -> None:
         """Call registered callback functions."""
         for callback in self._stale_devices_callbacks:
             _LOGGER.debug("Stale Devices callback %s", callback)
             self._event_loop.call_soon(callback, msg)
 
-    def add_update_callback(self, callback, device):
+    def add_update_callback(
+        self, callback: collections.abc.Callable[[object], None], device: str
+    ) -> None:
         """Register as callback for when a matching device changes."""
-        self._update_callbacks.append([callback, device])
+        self._update_callbacks.append((callback, device))
         _LOGGER.debug("Added update callback to %s on %s", callback, device)
 
-    def remove_update_callback(self, callback, device):
+    def remove_update_callback(
+        self, callback: collections.abc.Callable[[object], None], device: str
+    ) -> None:
         """Remove a registered update callback."""
-        if [callback, device] in self._update_callbacks:
-            self._update_callbacks.remove([callback, device])
+        if (callback, device) in self._update_callbacks:
+            self._update_callbacks.remove((callback, device))
             _LOGGER.debug("Removed update callback %s for %s", callback, device)
 
-    def _do_update_callback(self, msg):
+    def _do_update_callback(self, msg: object) -> None:
         """Call registered callback functions."""
         for callback, device in self._update_callbacks:
             if device == msg:

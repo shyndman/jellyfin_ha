@@ -7,6 +7,7 @@ import voluptuous as vol
 
 from jellyfin_apiclient_python import JellyfinClient
 from homeassistant import config_entries, exceptions
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import callback
 from homeassistant.const import (  # pylint: disable=import-error
     CONF_URL,
@@ -135,13 +136,13 @@ class JellyfinFlowBase:
             }
         )
 
-    def _create_entry_from_pending(self, title: str):
+    def _create_entry_from_pending(self, title: str) -> ConfigFlowResult:
         if self._pending_entry_data is None:
             raise ValueError("No pending entry data")
         data = self._pending_entry_data.model_dump()
         self._pending_entry_data = None
         self._client = None
-        return self.async_create_entry(title=title, data=data)
+        return self.async_create_entry(title=title, data=data)  # type: ignore[return-value]
 
 
 @config_entries.HANDLERS.register(DOMAIN)
@@ -153,26 +154,26 @@ class JellyfinFlowHandler(JellyfinFlowBase, config_entries.ConfigFlow):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> "JellyfinOptionsFlowHandler":
         """Jellyfin options callback."""
         return JellyfinOptionsFlowHandler(config_entry)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self._errors = {}
-        self._url = None
-        self._api_key = None
+        self._errors: dict[str, str] = {}
+        self._url: str | None = None
+        self._api_key: str | None = None
         self._verify_ssl = DEFAULT_VERIFY_SSL
         self._generate_upcoming = False
         self._generate_yamc = False
         self._is_import = False
 
-    async def async_step_import(self, user_input=None):
+    async def async_step_import(self, user_input: dict[str, object] | None = None) -> ConfigFlowResult:
         """Handle configuration by yaml file."""
         self._is_import = True
         return await self.async_step_user(user_input)
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: dict[str, object] | None = None) -> ConfigFlowResult:
         """Handle a flow initialized by the user."""
         self._errors = {}
 
@@ -237,17 +238,18 @@ class JellyfinFlowHandler(JellyfinFlowBase, config_entries.ConfigFlow):
             errors=self._errors,
         )
 
-    async def async_step_select_user(self, user_input=None):
+    async def async_step_select_user(self, user_input: dict[str, object] | None = None) -> ConfigFlowResult:
         """Select the Jellyfin user for optional features."""
         self._errors = {}
 
         if user_input is not None:
-            library_user_id = user_input.get(CONF_LIBRARY_USER_ID)
-            if not library_user_id:
+            raw_library_user_id = user_input.get(CONF_LIBRARY_USER_ID)
+            if not raw_library_user_id:
                 self._errors["base"] = ERROR_USER_REQUIRED
             elif self._pending_entry_data is None:
                 raise ValueError("No pending entry data")
             else:
+                library_user_id = str(raw_library_user_id)
                 # Rebuild with user and validate
                 self._pending_entry_data = JellyfinEntryData(
                     url=self._pending_entry_data.url,
@@ -283,9 +285,9 @@ class JellyfinFlowHandler(JellyfinFlowBase, config_entries.ConfigFlow):
 class JellyfinOptionsFlowHandler(JellyfinFlowBase, config_entries.OptionsFlow):
     """Option flow for Jellyfin component."""
 
-    def __init__(self, config_entry):
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         super().__init__()
-        self._errors = {}
+        self._errors: dict[str, str] = {}
         self._url = config_entry.data.get(CONF_URL)
         self._api_key = config_entry.data.get(CONF_API_KEY, "")
         self._verify_ssl = config_entry.data.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL)
@@ -293,11 +295,11 @@ class JellyfinOptionsFlowHandler(JellyfinFlowBase, config_entries.OptionsFlow):
         self._generate_yamc = config_entry.data.get(CONF_GENERATE_YAMC, False)
         self._library_user_id = config_entry.data.get(CONF_LIBRARY_USER_ID)
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(self, user_input: dict[str, object] | None = None) -> ConfigFlowResult:
         """Manage the options."""
         return await self.async_step_user()
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: dict[str, object] | None = None) -> ConfigFlowResult:
         self._errors = {}
 
         if user_input is not None:
@@ -357,16 +359,17 @@ class JellyfinOptionsFlowHandler(JellyfinFlowBase, config_entries.OptionsFlow):
             errors=self._errors,
         )
 
-    async def async_step_select_user(self, user_input=None):
+    async def async_step_select_user(self, user_input: dict[str, object] | None = None) -> ConfigFlowResult:
         self._errors = {}
 
         if user_input is not None:
-            library_user_id = user_input.get(CONF_LIBRARY_USER_ID)
-            if not library_user_id:
+            raw_library_user_id = user_input.get(CONF_LIBRARY_USER_ID)
+            if not raw_library_user_id:
                 self._errors["base"] = ERROR_USER_REQUIRED
             elif self._pending_entry_data is None:
                 raise ValueError("No pending entry data")
             else:
+                library_user_id = str(raw_library_user_id)
                 # Rebuild with user and validate
                 self._pending_entry_data = JellyfinEntryData(
                     url=self._pending_entry_data.url,

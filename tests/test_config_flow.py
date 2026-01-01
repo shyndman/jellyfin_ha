@@ -149,14 +149,14 @@ sys.modules.setdefault("custom_components.jellyfin", jellyfin_pkg)
 
 sys.path.append(str(ROOT))
 
-from custom_components.jellyfin.config_flow import JellyfinFlowBase, JellyfinFlowHandler
-from custom_components.jellyfin.const import (
+from custom_components.jellyfin.config_flow import JellyfinFlowBase, JellyfinFlowHandler  # noqa: E402
+from custom_components.jellyfin.const import (  # noqa: E402
     CONF_API_KEY,
     CONF_GENERATE_UPCOMING,
     CONF_GENERATE_YAMC,
     CONF_LIBRARY_USER_ID,
 )
-from homeassistant.const import CONF_URL, CONF_VERIFY_SSL
+from homeassistant.const import CONF_URL, CONF_VERIFY_SSL  # noqa: E402
 
 
 def _build_flow() -> JellyfinFlowHandler:
