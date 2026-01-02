@@ -210,7 +210,7 @@ class JellyfinFlowHandler(JellyfinFlowBase, config_entries.ConfigFlow):
                     self._library_user_id = None
                     return await self.async_step_select_user()
 
-                return self._create_entry_from_pending(DOMAIN)
+                return self._create_entry_from_pending(self._url)
 
             except (asyncio.TimeoutError, CannotConnect):
                 result = RESULT_CONN_ERROR
@@ -260,7 +260,7 @@ class JellyfinFlowHandler(JellyfinFlowBase, config_entries.ConfigFlow):
                     library_user_id=library_user_id,
                 )
                 self._library_user_id = library_user_id
-                return self._create_entry_from_pending(DOMAIN)
+                return self._create_entry_from_pending(self._url)
 
         try:
             user_options = await self._async_get_user_options()
@@ -343,7 +343,7 @@ class JellyfinOptionsFlowHandler(JellyfinFlowBase, config_entries.OptionsFlow):
                     generate_yamc=self._generate_yamc,
                     library_user_id=None,
                 )
-                return self._create_entry_from_pending(DOMAIN)
+                return self._create_entry_from_pending(self._url)
 
         data_schema = {
             vol.Required(CONF_URL, default=self._url or ""): str,
@@ -380,7 +380,7 @@ class JellyfinOptionsFlowHandler(JellyfinFlowBase, config_entries.OptionsFlow):
                     library_user_id=library_user_id,
                 )
                 self._library_user_id = library_user_id
-                return self._create_entry_from_pending(DOMAIN)
+                return self._create_entry_from_pending(self._url)
 
         try:
             user_options = await self._async_get_user_options()
