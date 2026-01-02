@@ -48,6 +48,11 @@ from .const import (
     STATE_IDLE,
     STATE_OFF,
     STATE_PAUSED,
+)
+from .view import JellyfinImageView
+
+# Re-import after view import to continue the const imports
+from .const import (
     STATE_PLAYING,
     USER_APP_NAME,
     YAMC_PAGE_SIZE,
@@ -154,6 +159,9 @@ async def async_setup(hass: HomeAssistant, config: Mapping[str, object]) -> bool
     if DOMAIN not in hass.data:
         hass.data[DOMAIN] = {}
 
+    # Register the image proxy view for media browser thumbnails
+    hass.http.register_view(JellyfinImageView())
+
     return True
 
 
@@ -179,8 +187,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
 
     _update_unlistener = config_entry.add_update_listener(_update_listener)
 
-    hass.data[DOMAIN][config.url] = {}
+    hass.data[DOMAIN][config.url] = {
+        "entry_id": config_entry.entry_id,
+    }
     _jelly = JellyfinClientManager(hass, config)
+    _jelly.entry_id = config_entry.entry_id
     try:
         await _jelly.connect()
         hass.data[DOMAIN][config.url]["manager"] = _jelly
@@ -538,6 +549,8 @@ class JellyfinClientManager:
     _yamc_cur_page: int
     _last_playlist: str
     _last_search: str
+    thumbnail_cache: dict[str, str]
+    entry_id: str
 
     def __init__(self, hass: HomeAssistant, config: JellyfinEntryData) -> None:
         self.hass = hass
@@ -557,6 +570,10 @@ class JellyfinClientManager:
 
         self.config = config
         self.server_url = ""
+
+        # Cache for thumbnail URLs (media_id -> jellyfin_image_url)
+        # Used by the image proxy view to fetch images on behalf of the browser
+        self.thumbnail_cache = {}
 
         # Library item counts
         self._movie_count: int | None = None

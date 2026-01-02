@@ -22,6 +22,7 @@ from . import JellyfinClientManager, autolog
 from .const import (
     DOMAIN,
 )
+from .view import get_proxy_image_url
 
 PLAYABLE_MEDIA_TYPES = [
     MediaType.ALBUM,
@@ -183,6 +184,21 @@ def IsPlayable(jellyfin_type: str, canPlayList: bool) -> bool | None:
     }
     return switcher.get(jellyfin_type)
 
+
+def get_proxied_thumbnail_url(jelly_cm: JellyfinClientManager, media_id: str) -> str:
+    """Get a proxied thumbnail URL for a media item.
+
+    Caches the actual Jellyfin URL and returns a proxy URL that Home Assistant
+    can serve to browsers that may not have direct access to the Jellyfin server.
+    """
+    # Get the actual Jellyfin artwork URL and cache it
+    artwork_url = jelly_cm.get_artwork_url(media_id)
+    jelly_cm.thumbnail_cache[media_id] = artwork_url
+
+    # Return the proxy URL that routes through Home Assistant
+    return get_proxy_image_url(jelly_cm.entry_id, media_id)
+
+
 async def async_library_items(
     jelly_cm: JellyfinClientManager,
     media_content_type_in: str | None = None,
@@ -237,7 +253,7 @@ async def async_library_items(
             title=str(parent_item["Name"]),
             can_play=IsPlayable(item_type, canPlayList),
             can_expand=True,
-            thumbnail=jelly_cm.get_artwork_url(media_content_id),
+            thumbnail=get_proxied_thumbnail_url(jelly_cm, media_content_id),
             children=[],
         )
     else:
@@ -253,7 +269,7 @@ async def async_library_items(
             title="",
             can_play=True,
             can_expand=False,
-            thumbnail=jelly_cm.get_artwork_url(media_content_id),
+            thumbnail=get_proxied_thumbnail_url(jelly_cm, media_content_id),
             children=[],
         )
     _LOGGER.debug('-- async_library_items: 1')
@@ -277,7 +293,7 @@ async def async_library_items(
                     can_play=IsPlayable(item_type, canPlayList),
                     can_expand=True,
                     children=[],
-                    thumbnail=jelly_cm.get_artwork_url(item_id)
+                    thumbnail=get_proxied_thumbnail_url(jelly_cm, item_id)
                 ))
             else:
                 library_info.children_media_class = Type2Mediaclass(item_type)
@@ -290,7 +306,7 @@ async def async_library_items(
                     can_play=IsPlayable(item_type, canPlayList),
                     can_expand=False,
                     children=[],
-                    thumbnail=jelly_cm.get_artwork_url(item_id)
+                    thumbnail=get_proxied_thumbnail_url(jelly_cm, item_id)
                 ))
         else:
             library_info.domain=DOMAIN
