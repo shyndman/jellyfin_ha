@@ -557,6 +557,11 @@ class JellyfinClientManager:
         self.config = config
         self.server_url = ""
 
+        # Library item counts
+        self._movie_count: int | None = None
+        self._episode_count: int | None = None
+        self._series_count: int | None = None
+
         self._sessions: list[SessionInfoDto] | None = None
         self._devices: dict[str, JellyfinDevice] = {}
 
@@ -739,9 +744,28 @@ class JellyfinClientManager:
         self.is_stopping = True
         await self.hass.async_add_executor_job(self._client.stop)
 
+    async def _get_item_count(self, item_type: str) -> int:
+        """Fetch the total count of items of a given type."""
+        query = {
+            "includeItemTypes": item_type,
+            "recursive": "true",
+            "limit": 0,
+            "enableTotalRecordCount": "true",
+        }
+        raw = await self.hass.async_add_executor_job(
+            self._client.jellyfin.items, "", "GET", query
+        )
+        result = BaseItemDtoQueryResult.model_validate(raw)
+        return result.TotalRecordCount
+
     async def update_data(self):
         autolog("<<<")
         user_id = self.config.library_user_id
+
+        # Fetch library item counts
+        self._movie_count = await self._get_item_count("Movie")
+        self._episode_count = await self._get_item_count("Episode")
+        self._series_count = await self._get_item_count("Series")
 
         if self.config.generate_upcoming:
             if not user_id:
@@ -922,6 +946,21 @@ class JellyfinClientManager:
             return None
 
         return self._info
+
+    @property
+    def movie_count(self) -> int | None:
+        """Total number of movies in the library."""
+        return self._movie_count
+
+    @property
+    def episode_count(self) -> int | None:
+        """Total number of episodes in the library."""
+        return self._episode_count
+
+    @property
+    def series_count(self) -> int | None:
+        """Total number of series in the library."""
+        return self._series_count
 
     @property
     def data(self):

@@ -1,22 +1,21 @@
 """Support to interface with the Jellyfin API."""
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from homeassistant.helpers.entity import Entity
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_URL,
     DEVICE_DEFAULT_NAME,
-    STATE_ON,
     STATE_OFF,
+    STATE_ON,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import Entity
 
 from . import JellyfinClientManager, autolog
-
-from .const import (
-    DOMAIN,
-)
+from .const import DOMAIN
 
 if TYPE_CHECKING:
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -33,7 +32,15 @@ async def async_setup_entry(
 ) -> None:
 
     _jelly: JellyfinClientManager = hass.data[DOMAIN][config_entry.data.get(CONF_URL)]["manager"]
-    async_add_entities([JellyfinSensor(_jelly)], True)
+    async_add_entities(
+        [
+            JellyfinSensor(_jelly),
+            JellyfinItemCountSensor(_jelly, "movie", lambda m: m.movie_count),
+            JellyfinItemCountSensor(_jelly, "episode", lambda m: m.episode_count),
+            JellyfinItemCountSensor(_jelly, "series", lambda m: m.series_count),
+        ],
+        True,
+    )
     
 
 class JellyfinSensor(Entity):
@@ -149,4 +156,62 @@ class JellyfinSensor(Entity):
 
         await self.jelly_cm.yamc_set_playlist(playlist)
         self.async_schedule_update_ha_state()
+
+
+class JellyfinItemCountSensor(SensorEntity):
+    """Sensor for Jellyfin library item counts (movies, episodes, series)."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(
+        self,
+        jelly_cm: JellyfinClientManager,
+        item_type: str,
+        count_getter: Callable[[JellyfinClientManager], int | None],
+    ) -> None:
+        """Initialize the count sensor."""
+        self.jelly_cm = jelly_cm
+        self._item_type = item_type
+        self._count_getter = count_getter
+
+    @property
+    def unique_id(self) -> str | None:
+        """Return unique ID for this sensor."""
+        info = self.jelly_cm.info
+        if info is None:
+            return None
+        return f"{info['Id']}_{self._item_type}_count"
+
+    @property
+    def name(self) -> str:
+        """Return the name of the sensor."""
+        info = self.jelly_cm.info
+        server_name = info["ServerName"] if info else "Jellyfin"
+        return f"{server_name} {self._item_type.title()} Count"
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the count value."""
+        return self._count_getter(self.jelly_cm)
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self.jelly_cm.is_available
+
+    @property
+    def should_poll(self) -> bool:
+        """Return True if entity has to be polled for state."""
+        return False
+
+    @property
+    def device_info(self) -> dict[str, object]:
+        """Return device information to link to the Jellyfin server device."""
+        return {
+            "identifiers": {(DOMAIN, self.jelly_cm.server_url)},
+        }
+
+    async def async_update(self) -> None:
+        """Update the sensor (piggybacks on JellyfinSensor's update)."""
+        pass
 
