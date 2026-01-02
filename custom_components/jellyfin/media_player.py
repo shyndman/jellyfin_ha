@@ -179,9 +179,11 @@ class JellyfinMediaPlayer(MediaPlayerEntity):
 
     @property
     def device_info(self) -> dict[str, object]:
-        """Return device information to link this entity to the Jellyfin server device."""
+        """Return device information for this media player."""
         return {
-            "identifiers": {(DOMAIN, self.jelly_cm.server_url)},
+            "identifiers": {(DOMAIN, self.device_id)},
+            "name": self.device.name,
+            "via_device": (DOMAIN, self.jelly_cm.server_url),
         }
 
     @property
