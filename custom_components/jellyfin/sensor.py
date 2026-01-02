@@ -38,6 +38,8 @@ async def async_setup_entry(
             JellyfinItemCountSensor(_jelly, "movie", lambda m: m.movie_count),
             JellyfinItemCountSensor(_jelly, "episode", lambda m: m.episode_count),
             JellyfinItemCountSensor(_jelly, "series", lambda m: m.series_count),
+            JellyfinItemCountSensor(_jelly, "connected_session", lambda m: m.connected_session_count),
+            JellyfinItemCountSensor(_jelly, "playing_session", lambda m: m.playing_session_count),
         ],
         True,
     )

@@ -965,6 +965,20 @@ class JellyfinClientManager:
         return self._series_count
 
     @property
+    def connected_session_count(self) -> int:
+        """Number of active sessions."""
+        if self._sessions is None:
+            return 0
+        return sum(1 for s in self._sessions if s.IsActive)
+
+    @property
+    def playing_session_count(self) -> int:
+        """Number of sessions with media loaded."""
+        if self._sessions is None:
+            return 0
+        return sum(1 for s in self._sessions if s.NowPlayingItem is not None)
+
+    @property
     def data(self):
         """Upcoming card data"""
         if not self.config.generate_upcoming or self.is_stopping:
