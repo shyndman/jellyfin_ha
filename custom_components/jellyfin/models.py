@@ -59,6 +59,25 @@ class BaseItemDtoQueryResult(BaseModel):
     StartIndex: int | None = None
 
 
+class SystemInfo(BaseModel):
+    """Information about the Jellyfin server."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    Id: str | None = None
+    ServerName: str | None = None
+    Version: str | None = None
+    OperatingSystem: str | None = None  # Deprecated but still returned
+    HasUpdateAvailable: bool = False  # Deprecated but still returned
+    HasPendingRestart: bool = False
+    IsShuttingDown: bool = False
+    SupportsLibraryMonitor: bool = False
+    WebSocketPortNumber: int | None = None
+    LocalAddress: str | None = None
+    ProductName: str | None = None
+    StartupWizardCompleted: bool | None = None
+
+
 # =============================================================================
 # Session Models (WebSocket / Sessions API)
 # =============================================================================

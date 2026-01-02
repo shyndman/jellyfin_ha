@@ -58,6 +58,7 @@ from .models import (
     MediaSourceInfo,
     PlaybackInfoResponse,
     SessionInfoDto,
+    SystemInfo,
     UpcomingCardDefaults,
     UpcomingCardItem,
     UpcomingCardPayload,
@@ -531,7 +532,7 @@ class JellyfinClientManager:
     is_stopping: bool
     _event_loop: asyncio.AbstractEventLoop
     host: str
-    _info: dict[str, object] | None
+    _info: SystemInfo | None
     config: JellyfinEntryData
     server_url: str
     _yamc_cur_page: int
@@ -725,9 +726,10 @@ class JellyfinClientManager:
         await self.hass.async_add_executor_job(self._client.start, True)
         self.is_stopping = False
 
-        self._info = await self.hass.async_add_executor_job(
+        raw_info = await self.hass.async_add_executor_job(
             self._client.jellyfin._get, "System/Info"
         )
+        self._info = SystemInfo.model_validate(raw_info)
         raw_sessions = cast(
             list[dict[str, Any]],
             self.clean_none_dict_values(
@@ -941,7 +943,7 @@ class JellyfinClientManager:
             return False
 
     @property
-    def info(self):
+    def info(self) -> SystemInfo | None:
         if self.is_stopping:
             return None
 

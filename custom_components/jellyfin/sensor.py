@@ -71,7 +71,7 @@ class JellyfinSensor(Entity):
         info = self.jelly_cm.info
         if info is None:
             return None
-        return info["Id"]
+        return info.Id
 
     @property
     def device_info(self) -> dict[str, object] | None:
@@ -85,8 +85,8 @@ class JellyfinSensor(Entity):
                 (DOMAIN, self.jelly_cm.server_url)
             },
             "manufacturer": "Jellyfin",
-            "model": f"Jellyfin {info['Version']}".rstrip(),
-            "name": info['ServerName'],
+            "model": f"Jellyfin {info.Version}".rstrip(),
+            "name": info.ServerName,
             "configuration_url": self.jelly_cm.server_url,
         }
 
@@ -96,7 +96,7 @@ class JellyfinSensor(Entity):
         info = self.jelly_cm.info
         if info is None:
             return DEVICE_DEFAULT_NAME
-        return f"Jellyfin {info['ServerName']}" or DEVICE_DEFAULT_NAME
+        return f"Jellyfin {info.ServerName}" or DEVICE_DEFAULT_NAME
 
     @property
     def should_poll(self) -> bool:
@@ -115,9 +115,9 @@ class JellyfinSensor(Entity):
         if info is None:
             return None
         extra_attr: dict[str, object] = {
-            "os": info["OperatingSystem"],
-            "update_available": info["HasUpdateAvailable"],
-            "version": info["Version"],
+            "os": info.OperatingSystem,
+            "update_available": info.HasUpdateAvailable,
+            "version": info.Version,
         }
         if self.jelly_cm.data:
             extra_attr["data"] = self.jelly_cm.data
@@ -180,13 +180,13 @@ class JellyfinItemCountSensor(SensorEntity):
         info = self.jelly_cm.info
         if info is None:
             return None
-        return f"{info['Id']}_{self._item_type}_count"
+        return f"{info.Id}_{self._item_type}_count"
 
     @property
     def name(self) -> str:
         """Return the name of the sensor."""
         info = self.jelly_cm.info
-        server_name = info["ServerName"] if info else "Jellyfin"
+        server_name = info.ServerName if info else "Jellyfin"
         return f"{server_name} {self._item_type.title()} Count"
 
     @property
