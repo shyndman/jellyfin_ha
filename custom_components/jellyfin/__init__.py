@@ -219,12 +219,13 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
             DOMAIN, my_service, async_service_handler, schema=schema
         )
 
+    # Start the client and fetch server info BEFORE setting up entity platforms.
+    # This ensures _info is available when entities access device_info during registration.
     await _jelly.start()
 
     for platform in PLATFORMS:
         hass.data[DOMAIN][config.url][platform] = {}
         hass.data[DOMAIN][config.url][platform]["entities"] = []
-
         await hass.config_entries.async_forward_entry_setups(config_entry, [platform])
 
     async_dispatcher_send(hass, SIGNAL_STATE_UPDATED)

@@ -178,6 +178,13 @@ class JellyfinMediaPlayer(MediaPlayerEntity):
         return self.device_id
 
     @property
+    def device_info(self) -> dict[str, object]:
+        """Return device information to link this entity to the Jellyfin server device."""
+        return {
+            "identifiers": {(DOMAIN, self.jelly_cm.server_url)},
+        }
+
+    @property
     def supports_remote_control(self) -> bool:
         """Return control ability."""
         return self.device.supports_remote_control
