@@ -15,6 +15,6 @@
 
 ## 2. Validation
 
-- [ ] 2.1 Test with TV session (HasCustomDeviceName=true) — entity created
-- [ ] 2.2 Test with browser session (HasCustomDeviceName=false) — no entity created
-- [ ] 2.3 Test re-authentication — same entity updated, no duplicate
+- [x] 2.1 Test with TV session (HasCustomDeviceName=true) — entity created
+- [x] 2.2 Test with browser session (HasCustomDeviceName=false) — no entity created
+- [x] 2.3 Test re-authentication — same entity updated, no duplicate

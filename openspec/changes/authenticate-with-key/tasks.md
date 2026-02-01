@@ -95,9 +95,9 @@
 
 ## 10. Validation
 
-- [ ] 10.1 Remove the integration from Home Assistant if previously configured
-- [ ] 10.2 Restart Home Assistant
-- [ ] 10.3 Add the integration via UI - verify API key field appears
-- [ ] 10.4 Test with a valid API key - verify connection succeeds
-- [ ] 10.5 Test with an invalid API key - verify appropriate error shown
-- [ ] 10.6 Verify media player entities appear after successful configuration
+- [x] 10.1 Remove the integration from Home Assistant if previously configured
+- [x] 10.2 Restart Home Assistant
+- [x] 10.3 Add the integration via UI - verify API key field appears
+- [x] 10.4 Test with a valid API key - verify connection succeeds
+- [x] 10.5 Test with an invalid API key - verify appropriate error shown
+- [x] 10.6 Verify media player entities appear after successful configuration
