@@ -46,6 +46,7 @@ Represents a Jellyfin playback device/session with properties for:
 - Playback state (playing, paused, idle, off)
 - Current media info (title, position, runtime, artwork)
 - Remote control commands (play, pause, seek, etc.)
+- Only sessions reporting `HasCustomDeviceName == true` are tracked; their entity `unique_id` is derived from `{UserId}{DeviceName}` so browser sessions never create entities and re-authentication keeps the same device identity.
 
 ### Entity Platforms
 
@@ -142,11 +143,15 @@ def state(self):
 ### Config Entry Data
 
 Configuration stored in `config_entry.data`:
-- `CONF_URL`: Server URL
-- `CONF_USERNAME`, `CONF_PASSWORD`: Credentials
+- `CONF_URL`: Server URL (normalized before auth)
+- `CONF_API_KEY`: Jellyfin admin API key (sole credential)
 - `CONF_VERIFY_SSL`: SSL verification flag
-- `CONF_CLIENT_ID`: Unique client UUID
-- `CONF_GENERATE_UPCOMING`, `CONF_GENERATE_YAMC`: Feature flags
+- `CONF_GENERATE_UPCOMING`, `CONF_GENERATE_YAMC`: Feature flags shown after the connection succeeds
+- `CONF_LIBRARY_USER_ID`: Jellyfin user id persisted whenever Upcoming or YAMC is enabled
+
+### Setup Flow Behavior
+
+- `async_step_user` now focuses entirely on validating the server URL, API key, and SSL choice. After a successful connection check, the handler transitions to a second step that exposes the Upcoming/YAMC toggles plus a Jellyfin user dropdown. Selecting a user id is mandatory when either toggle is enabled, and the options flow mirrors the same two-step experience.
 
 ## Common Patterns
 
