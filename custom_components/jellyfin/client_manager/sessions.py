@@ -115,23 +115,11 @@ class SessionsMixin:
     def _session_summary(cls, session: SessionInfoDto) -> dict[str, object]:
         now_playing = session.NowPlayingItem
         return {
-            "session_id": session.Id,
             "username": session.UserName,
-            "user_id": session.UserId,
-            "client": session.Client,
-            "device_id": session.DeviceId,
             "device_name": session.DeviceName,
-            "is_active": session.IsActive,
-            "playback_status": cls._session_state(session),
-            "last_activity_date": session.LastActivityDate,
-            "last_playback_check_in": session.LastPlaybackCheckIn,
-            "supports_media_control": session.SupportsMediaControl,
-            "supports_remote_control": session.SupportsRemoteControl,
-            "has_custom_device_name": session.HasCustomDeviceName,
-            "item_id": now_playing.Id if now_playing else None,
             "item_name": now_playing.Name if now_playing else None,
             "item_type": now_playing.Type if now_playing else None,
-            "state": session.PlayState.model_dump() if session.PlayState else None,
+            "playback_status": cls._session_state(session),
         }
 
     @property
