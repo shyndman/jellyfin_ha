@@ -122,6 +122,25 @@ class SessionsMixin:
             "playback_status": cls._session_state(session),
         }
 
+    @classmethod
+    def _session_summaries(
+        cls, sessions: collections.abc.Iterable[SessionInfoDto]
+    ) -> list[dict[str, object]]:
+        """Summarize sessions in a stable, human-readable order.
+
+        Jellyfin returns sessions in an arbitrary order that also churns between
+        polls, so the attribute lists surfaced in Home Assistant would reshuffle
+        on every update. Sorting by username then device name keeps the rendered
+        list scannable and diff-stable.
+        """
+        return sorted(
+            (cls._session_summary(session) for session in sessions),
+            key=lambda summary: (
+                str(summary["username"] or ""),
+                str(summary["device_name"] or ""),
+            ),
+        )
+
     @property
     def connected_session_count(self) -> int:
         if self._sessions is None:
@@ -132,11 +151,9 @@ class SessionsMixin:
     def connected_sessions(self) -> list[dict[str, object]]:
         if self._sessions is None:
             return []
-        return [
-            self._session_summary(session)
-            for session in self._sessions
-            if session.IsActive
-        ]
+        return self._session_summaries(
+            session for session in self._sessions if session.IsActive
+        )
 
     @property
     def playing_session_count(self) -> int:
@@ -148,11 +165,9 @@ class SessionsMixin:
     def playing_sessions(self) -> list[dict[str, object]]:
         if self._sessions is None:
             return []
-        return [
-            self._session_summary(session)
-            for session in self._sessions
-            if session.NowPlayingItem is not None
-        ]
+        return self._session_summaries(
+            session for session in self._sessions if session.NowPlayingItem is not None
+        )
 
     @property
     def transcoding_session_count(self) -> int:
@@ -164,11 +179,9 @@ class SessionsMixin:
     def transcoding_sessions(self) -> list[dict[str, object]]:
         if self._sessions is None:
             return []
-        return [
-            self._session_summary(session)
-            for session in self._sessions
-            if self._is_transcoding(session)
-        ]
+        return self._session_summaries(
+            session for session in self._sessions if self._is_transcoding(session)
+        )
 
     @staticmethod
     def _is_transcoding(session: SessionInfoDto) -> bool:
