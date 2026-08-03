@@ -1,5 +1,10 @@
 ## Changelog
 
+### 2.0.0
+
+- Rename the project, integration, and Home Assistant domain to JellyOps
+- Require existing installations to remove and re-add the integration
+
 ### 1.1.2
 
 - Handle `ManualPlaylistsFolder` type

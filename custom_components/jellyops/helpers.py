@@ -1,4 +1,4 @@
-"""Shared helper utilities for the Jellyfin integration."""
+"""Shared helper utilities for JellyOps."""
 
 from __future__ import annotations
 

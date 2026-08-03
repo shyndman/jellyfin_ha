@@ -1,4 +1,4 @@
-"""Home Assistant service registration for the Jellyfin integration."""
+"""Home Assistant service registration for JellyOps."""
 
 from __future__ import annotations
 

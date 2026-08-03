@@ -2,16 +2,16 @@
 
 This is a **Home Assistant custom component** that provides integration with Jellyfin media servers. It's a forked version updated for compatibility with Home Assistant 2025.1+.
 
-- **Domain**: `jellyfin`
-- **Version**: 1.1.2
+- **Domain**: `jellyops`
+- **Version**: 2.0.0
 - **Python Dependency**: `jellyfin-apiclient-python==1.7.2`
 - **IoT Class**: `local_push` (WebSocket-based real-time updates)
 
 ## Repository Structure
 
 ```
-jellyfin_ha/
-├── custom_components/jellyfin/   # Main integration code
+jellyops/
+├── custom_components/jellyops/   # Main integration code
 │   ├── __init__.py              # Core integration setup, JellyfinClientManager
 │   ├── config_flow.py           # Config/options flow for UI setup
 │   ├── const.py                 # Constants, domain definitions, playlists
@@ -79,9 +79,9 @@ Defined in `services.yaml` and registered in `__init__.py:111-118`:
 
 ### Installation for Development
 
-1. Clone to `custom_components/jellyfin` in your HA config directory
+1. Clone to `custom_components/jellyops` in your HA config directory
 2. Restart Home Assistant
-3. Add integration via UI (Settings > Integrations > Add Integration > Jellyfin)
+3. Add integration via UI (Settings > Integrations > Add Integration > JellyOps)
 
 ### CI/CD
 
@@ -204,7 +204,7 @@ Add to `configuration.yaml`:
 logger:
   default: info
   logs:
-    custom_components.jellyfin: debug
+    custom_components.jellyops: debug
 ```
 
 ## Important Notes for AI Assistants

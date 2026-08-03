@@ -1,4 +1,4 @@
-"""URL helpers for the Jellyfin integration."""
+"""URL helpers for JellyOps."""
 from urllib.parse import urlparse, urlunparse
 
 from .const import DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT

@@ -1,7 +1,7 @@
-"""Constants for the jellyfin integration."""
+"""Constants for the jellyops integration."""
 from typing import TypedDict
 
-DOMAIN = "jellyfin"
+DOMAIN = "jellyops"
 SIGNAL_STATE_UPDATED = "{}.updated".format(DOMAIN)
 
 SERVICE_SCAN = "trigger_scan"

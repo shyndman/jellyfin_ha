@@ -235,7 +235,7 @@ class PlaybackInfoResponse(BaseModel):
 
 
 class JellyfinEntryData(BaseModel):
-    """Validated configuration data for a Jellyfin integration entry."""
+    """Validated configuration data for a JellyOps entry."""
 
     model_config = ConfigDict(extra="forbid")
 

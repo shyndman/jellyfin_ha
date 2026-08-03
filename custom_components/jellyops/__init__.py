@@ -1,4 +1,4 @@
-"""The jellyfin component."""
+"""The JellyOps component."""
 
 from __future__ import annotations
 

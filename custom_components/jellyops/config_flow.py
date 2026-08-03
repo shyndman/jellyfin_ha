@@ -147,7 +147,7 @@ class JellyfinFlowBase:
 
 @config_entries.HANDLERS.register(DOMAIN)
 class JellyfinFlowHandler(JellyfinFlowBase, config_entries.ConfigFlow):
-    """Config flow for Jellyfin component."""
+    """Config flow for JellyOps."""
 
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
@@ -155,7 +155,7 @@ class JellyfinFlowHandler(JellyfinFlowBase, config_entries.ConfigFlow):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> "JellyfinOptionsFlowHandler":
-        """Jellyfin options callback."""
+        """Return the JellyOps options flow."""
         return JellyfinOptionsFlowHandler(config_entry)
 
     def __init__(self) -> None:
@@ -283,7 +283,7 @@ class JellyfinFlowHandler(JellyfinFlowBase, config_entries.ConfigFlow):
 
 
 class JellyfinOptionsFlowHandler(JellyfinFlowBase, config_entries.OptionsFlow):
-    """Option flow for Jellyfin component."""
+    """Options flow for JellyOps."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         super().__init__()

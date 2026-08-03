@@ -1,4 +1,4 @@
-# Jellyfin Operations
+# JellyOps
 
 A Home Assistant integration for Jellyfin server administrators. Where the core
 Jellyfin integration serves the media consumer, this one serves the operator:
@@ -10,11 +10,14 @@ Forked version to work with 2025.1 version of Home Assistant
 All thanks and rights goes to the author of the integration. 
 
 ## Installation:
+Version 2.0 changes the integration domain from `jellyfin` to `jellyops`.
+Existing configuration entries are not migrated; remove the old integration
+before installing JellyOps, then configure it again.
 
 - Go to HACS
 - Press the three dots in the upper right corner
 - Press Custom repositories
-- In the Repository field, enter `shyndman/jellyops_ha`
+- In the Repository field, enter `shyndman/jellyops`
 - In the Category field, select `Integration`
 - Search for added integration in HACS and install it
 - Configure your Jellyfin server

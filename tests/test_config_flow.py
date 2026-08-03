@@ -144,14 +144,14 @@ custom_components_pkg = types.ModuleType("custom_components")
 custom_components_pkg.__path__ = [str(ROOT / "custom_components")]
 sys.modules.setdefault("custom_components", custom_components_pkg)
 
-jellyfin_pkg = types.ModuleType("custom_components.jellyfin")
-jellyfin_pkg.__path__ = [str(ROOT / "custom_components" / "jellyfin")]
-sys.modules.setdefault("custom_components.jellyfin", jellyfin_pkg)
+jellyops_pkg = types.ModuleType("custom_components.jellyops")
+jellyops_pkg.__path__ = [str(ROOT / "custom_components" / "jellyops")]
+sys.modules.setdefault("custom_components.jellyops", jellyops_pkg)
 
 sys.path.append(str(ROOT))
 
-from custom_components.jellyfin.config_flow import JellyfinFlowBase, JellyfinFlowHandler  # noqa: E402
-from custom_components.jellyfin.const import (  # noqa: E402
+from custom_components.jellyops.config_flow import JellyfinFlowBase, JellyfinFlowHandler  # noqa: E402
+from custom_components.jellyops.const import (  # noqa: E402
     CONF_API_KEY,
     CONF_GENERATE_UPCOMING,
     CONF_GENERATE_YAMC,

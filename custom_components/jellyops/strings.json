@@ -1,10 +1,10 @@
 {
-    "title": "Jellyfin Operations",
+    "title": "JellyOps",
     "config": {
-        "flow_title": "Jellyfin Operations Configuration",
+        "flow_title": "JellyOps Configuration",
         "step": {
             "user": {
-                "title": "Jellyfin Operations Config",
+                "title": "JellyOps Config",
                 "description": "Configure the integration.",
                 "data": {
                     "url": "[%key:common::config_flow::data::url%]",
@@ -34,10 +34,10 @@
         }
     },
     "options": {
-        "flow_title": "Jellyfin Operations Configuration",
+        "flow_title": "JellyOps Configuration",
         "step": {
             "user": {
-                "title": "Jellyfin Operations Config",
+                "title": "JellyOps Config",
                 "description": "Configure the connection details.",
                 "data": {
                     "url": "[%key:common::config_flow::data::url%]",

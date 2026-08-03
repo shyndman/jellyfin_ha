@@ -9,16 +9,16 @@ custom_components_pkg = types.ModuleType("custom_components")
 custom_components_pkg.__path__ = [str(ROOT / "custom_components")]
 sys.modules.setdefault("custom_components", custom_components_pkg)
 
-jellyfin_pkg = types.ModuleType("custom_components.jellyfin")
-jellyfin_pkg.__path__ = [str(ROOT / "custom_components" / "jellyfin")]
-sys.modules.setdefault("custom_components.jellyfin", jellyfin_pkg)
+jellyops_pkg = types.ModuleType("custom_components.jellyops")
+jellyops_pkg.__path__ = [str(ROOT / "custom_components" / "jellyops")]
+sys.modules.setdefault("custom_components.jellyops", jellyops_pkg)
 
-client_manager_pkg = types.ModuleType("custom_components.jellyfin.client_manager")
+client_manager_pkg = types.ModuleType("custom_components.jellyops.client_manager")
 client_manager_pkg.__path__ = [
-    str(ROOT / "custom_components" / "jellyfin" / "client_manager")
+    str(ROOT / "custom_components" / "jellyops" / "client_manager")
 ]
 client_manager_pkg.JellyfinClientManager = object
-sys.modules.setdefault("custom_components.jellyfin.client_manager", client_manager_pkg)
+sys.modules.setdefault("custom_components.jellyops.client_manager", client_manager_pkg)
 
 ha_module = sys.modules.setdefault("homeassistant", types.ModuleType("homeassistant"))
 components_module = sys.modules.setdefault(
@@ -75,11 +75,11 @@ ha_module.helpers = helpers_module
 
 sys.path.append(str(ROOT))
 
-from custom_components.jellyfin.client_manager.sessions import SessionsMixin  # noqa: E402
-from custom_components.jellyfin.const import STATE_IDLE, STATE_PAUSED  # noqa: E402
-from custom_components.jellyfin.const import DOMAIN  # noqa: E402
-from custom_components.jellyfin.models import SessionInfoDto  # noqa: E402
-from custom_components.jellyfin.sensor import JellyfinItemCountSensor  # noqa: E402
+from custom_components.jellyops.client_manager.sessions import SessionsMixin  # noqa: E402
+from custom_components.jellyops.const import STATE_IDLE, STATE_PAUSED  # noqa: E402
+from custom_components.jellyops.const import DOMAIN  # noqa: E402
+from custom_components.jellyops.models import SessionInfoDto  # noqa: E402
+from custom_components.jellyops.sensor import JellyfinItemCountSensor  # noqa: E402
 
 
 def _session(**overrides) -> SessionInfoDto:

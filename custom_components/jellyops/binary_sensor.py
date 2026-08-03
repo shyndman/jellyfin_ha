@@ -1,4 +1,4 @@
-"""Binary sensors for Jellyfin Operations."""
+"""Binary sensors for JellyOps."""
 import logging
 from typing import TYPE_CHECKING
 
