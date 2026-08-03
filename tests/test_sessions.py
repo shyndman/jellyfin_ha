@@ -215,6 +215,25 @@ def test_playing_sessions_keep_existing_names_and_add_metadata():
     assert manager.playing_sessions[0]["state"]["IsPaused"] is False
 
 
+def test_episode_session_summary_includes_series_season_and_episode():
+    session = _session(
+        NowPlayingItem={
+            "Id": "episode-1",
+            "Type": "Episode",
+            "Name": "Pilot",
+            "SeriesName": "Example Show",
+            "ParentIndexNumber": 2,
+            "IndexNumber": 3,
+        }
+    )
+
+    summary = SessionsMixin._session_summary(session)
+
+    assert summary["series_name"] == "Example Show"
+    assert summary["season_number"] == 2
+    assert summary["episode_number"] == 3
+
+
 def test_connected_session_sensor_exposes_connected_session_metadata():
     class _Manager:
         connected_sessions = [

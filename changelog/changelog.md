@@ -5,6 +5,7 @@
 - Rename the project, integration, and Home Assistant domain to JellyOps
 - Require existing installations to remove and re-add the integration
 - Bundle standard and high-DPI JellyOps logo assets
+- Include series title, season number, and episode number in session sensor attributes
 
 ### 1.1.2
 
