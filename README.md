@@ -5,7 +5,7 @@ Jellyfin integration serves the media consumer, this one serves the operator:
 session/now-playing monitoring, library item counts, and management actions
 (library scans, item search, item deletion).
 
-Forked version to work with 2025.1 version of Home Assistant
+Requires Home Assistant 2026.3 or newer.
 
 All thanks and rights goes to the author of the integration. 
 

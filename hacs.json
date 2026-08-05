@@ -1,5 +1,6 @@
 {
     "name": "JellyOps",
+    "homeassistant": "2026.3.0",
     "domains": ["sensor", "media_player"],
     "iot_class": ["Cloud Pushing"],
     "render_readme": true
