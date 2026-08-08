@@ -234,6 +234,20 @@ def test_episode_session_summary_includes_series_season_and_episode():
     assert summary["episode_number"] == 3
 
 
+def test_non_episode_session_summary_omits_episode_metadata():
+    for session in (
+        _session(),
+        _session(
+            NowPlayingItem={"Id": "movie-1", "Type": "Movie", "Name": "A Movie"}
+        ),
+    ):
+        summary = SessionsMixin._session_summary(session)
+
+        assert "series_name" not in summary
+        assert "season_number" not in summary
+        assert "episode_number" not in summary
+
+
 def test_connected_session_sensor_exposes_connected_session_metadata():
     class _Manager:
         connected_sessions = [

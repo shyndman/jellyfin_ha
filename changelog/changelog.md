@@ -6,7 +6,7 @@
 - Require existing installations to remove and re-add the integration
 - Require Home Assistant 2026.3 or newer for local brand asset support
 - Bundle transparent standard and high-DPI JellyOps icon assets
-- Include series title, season number, and episode number in session sensor attributes
+- Include series title, season number, and episode number only for episode session attributes
 
 ### 1.1.2
 

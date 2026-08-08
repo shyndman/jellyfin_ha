@@ -113,18 +113,24 @@ class SessionsMixin:
 
     @classmethod
     def _session_summary(cls, session: SessionInfoDto) -> dict[str, object]:
-        """Expose playback context, including series and episode identification."""
+        """Expose common playback context plus episode-specific identification."""
         now_playing = session.NowPlayingItem
-        return {
+        summary: dict[str, object] = {
             "username": session.UserName,
             "device_name": session.DeviceName,
             "item_name": now_playing.Name if now_playing else None,
             "item_type": now_playing.Type if now_playing else None,
-            "series_name": now_playing.SeriesName if now_playing else None,
-            "season_number": now_playing.ParentIndexNumber if now_playing else None,
-            "episode_number": now_playing.IndexNumber if now_playing else None,
             "playback_status": cls._session_state(session),
         }
+        if now_playing is not None and now_playing.Type == "Episode":
+            summary.update(
+                {
+                    "series_name": now_playing.SeriesName,
+                    "season_number": now_playing.ParentIndexNumber,
+                    "episode_number": now_playing.IndexNumber,
+                }
+            )
+        return summary
 
     @classmethod
     def _session_summaries(
